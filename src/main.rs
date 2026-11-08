@@ -64,10 +64,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// Route paths are the contract in docs/API_SPEC.md; keep them in sync.
 pub fn build_router(state: AppState) -> Router {
     Router::new()
+        .route("/healthz", axum::routing::get(healthz))
         .nest("/api/v1/auth", modules::auth::handlers::router())
         .nest("/api/v1/digital", modules::digital::handlers::router())
         .nest("/api/v1/services", modules::services::handlers::router())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)
+}
+
+/// Liveness probe. Returns 200 when the process is serving requests.
+/// Readiness (database reachable) is checked by the platform separately.
+async fn healthz() -> &'static str {
+    "ok"
 }
