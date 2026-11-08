@@ -74,6 +74,7 @@ Services:
 | Document | Contents |
 | --- | --- |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System design, stack, topology |
+| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Phases P0–P8, exit criteria |
 | [`docs/DATABASE.md`](./docs/DATABASE.md) | Schema, indexes, invariants |
 | [`docs/API_SPEC.md`](./docs/API_SPEC.md) | Endpoints, errors, rate limits |
 | [`docs/WORKFLOWS.md`](./docs/WORKFLOWS.md) | State machines |
