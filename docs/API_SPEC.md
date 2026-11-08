@@ -48,6 +48,7 @@ List resource:
 | 400 | `validation_error` | Malformed body, missing required field |
 | 401 | `unauthorized` | Missing/expired/invalid token |
 | 402 | `insufficient_funds` | Wallet balance below the order total |
+| 402 | `insufficient_credits` | AI credits below the job cost |
 | 403 | `forbidden` | Role or ownership check failed |
 | 404 | `not_found` | Resource does not exist or is not visible to caller |
 | 409 | `invalid_state_transition` | Action illegal for current status |
@@ -55,8 +56,11 @@ List resource:
 | 409 | `email_taken` | Register with existing email |
 | 410 | `entitlement_expired` | Entitlement exists but `expires_at` passed |
 | 410 | `downloads_exhausted` | `download_count >= max_downloads` |
+| 413 | `payload_too_large` | Upload exceeds the allowed size |
+| 415 | `unsupported_media_type` | Upload type is not allow-listed |
 | 422 | `brief_incomplete` | Brief payload fails the service template |
 | 429 | `rate_limited` | Throttled |
+| 502 | `generation_failed` | Renderer/LLM failed; credits refunded |
 | 500 | `internal_error` | Unexpected failure; carries `request_id` |
 
 All list endpoints accept `?page=1&per_page=20` (`per_page` max 100).
@@ -429,3 +433,303 @@ Authenticated, scoped as above. Includes brief, deliverables (previews only), re
 | Register | 5 / hour / IP |
 | Download | 30 / hour / user |
 | Everything else | 300 / minute / user |
+
+---
+
+## 6. Uploads (Pre-signed PUT)
+
+### `POST /uploads/presign`
+
+Authenticated. Issues a short-lived upload URL for client brief assets.
+
+```json
+{
+  "purpose": "brief_asset",
+  "filename": "logo.png",
+  "content_type": "image/png",
+  "size_bytes": 482113
+}
+```
+
+`200 OK`
+
+```json
+{
+  "data": {
+    "upload_url": "https://storage.example.com/user-uploads/...?X-Amz-Signature=...",
+    "key": "user-uploads/{user_id}/briefs/{uuid}.png",
+    "expires_at": "2026-01-01T00:05:00Z",
+    "max_size_bytes": 10485760
+  },
+  "meta": null
+}
+```
+
+Rules:
+
+- Allow-list by `purpose`: `brief_asset` → png/jpg/webp/pdf, ≤ 10 MB;
+  `generator_input` → png only, ≤ 10 MB.
+- The key is generated server-side under the caller's own prefix. A client
+  cannot request another user's prefix.
+- TTL is 300 s.
+- Errors: `413 payload_too_large`, `415 unsupported_media_type`.
+
+The client then `PUT`s the bytes directly to `upload_url`. The server verifies
+object existence and size before accepting the key in a brief.
+
+---
+
+## 7. AI Generator
+
+Full pipeline: `docs/AI_GENERATOR_PIPELINE.md`.
+
+### `POST /digital/generate`
+
+Authenticated (`client`, `admin`).
+
+```json
+{
+  "tool": "promo_banner",
+  "idempotency_key": "client-uuid",
+  "params": {
+    "product_image_key": "user-uploads/{user_id}/briefs/{uuid}.png",
+    "discount_percent": 20,
+    "brand_color": "#6366F1",
+    "aspect": "1:1"
+  }
+}
+```
+
+`202 Accepted`
+
+```json
+{
+  "data": {
+    "job_id": "uuid",
+    "status": "queued",
+    "credits_charged": 2,
+    "credits_remaining": 18,
+    "stream_url": "/api/v1/digital/generate/{job_id}/stream"
+  },
+  "meta": null
+}
+```
+
+Errors: `402 insufficient_credits`, `422 validation_error`,
+`429 rate_limited` (more than 2 active jobs).
+
+Replaying the same `idempotency_key` returns the original job with `200` and
+charges nothing.
+
+### `GET /digital/generate/{job_id}`
+
+Owner or admin.
+
+```json
+{
+  "data": {
+    "job_id": "uuid",
+    "tool": "promo_banner",
+    "status": "succeeded",
+    "output_url": "https://storage.example.com/...?X-Amz-Signature=...",
+    "output_mime": "image/png",
+    "credits_charged": 2,
+    "created_at": "2026-01-01T00:00:00Z"
+  },
+  "meta": null
+}
+```
+
+`output_url` is a 900 s signed URL. `output_path` is never returned.
+
+### `GET /digital/generate/{job_id}/stream`
+
+Server-Sent Events. Events: `meta`, `token`, `done`, `error`.
+See `AI_GENERATOR_PIPELINE.md` §4 for the wire format.
+
+Authentication uses a short-lived `?ticket=` issued alongside `stream_url`,
+because `EventSource` cannot send headers.
+
+---
+
+## 8. Payment Webhooks
+
+### `POST /webhooks/payment/{provider}`
+
+Public endpoint, authenticated by signature only.
+
+`provider` ∈ `bkash` | `sslcommerz` | `stripe`.
+
+- Verify the signature over the **raw body**.
+- Idempotent on `(provider, event_id)`; a duplicate returns `200` with no
+  side effect.
+- Applies the wallet credit and marks the webhook processed in one transaction.
+
+Responses:
+
+| Case | Status |
+| --- | --- |
+| Accepted and processed | `200` |
+| Already processed | `200` |
+| Invalid signature | `400` |
+| Unknown provider | `404` |
+| Internal failure (gateway should retry) | `500` |
+
+Never returns wallet details.
+
+---
+
+## 9. Finance
+
+### `GET /finance/wallet`
+
+```json
+{
+  "data": {
+    "currency": "USD",
+    "wallet_balance": "42.50",
+    "ai_credits": 18,
+    "pending_topups": 0
+  },
+  "meta": null
+}
+```
+
+Amounts are decimal strings, never floats.
+
+### `POST /finance/topup`
+
+```json
+{ "amount": "50.00", "currency": "USD", "provider": "stripe" }
+```
+
+`201 Created`
+
+```json
+{
+  "data": {
+    "topup_id": "uuid",
+    "status": "pending",
+    "redirect_url": "https://checkout.stripe.com/...",
+    "expires_at": "2026-01-01T00:15:00Z"
+  },
+  "meta": null
+}
+```
+
+For `provider: "wallet"` this is invalid — use the internal credit path.
+
+### `GET /finance/invoices`
+
+Paginated. `GET /finance/invoices/{id}` returns the invoice with a signed
+`pdf_url` (900 s).
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "invoice_number": "INV-202601-000001",
+      "currency": "USD",
+      "subtotal": "19.00",
+      "tax_amount": "0.00",
+      "total": "19.00",
+      "status": "paid",
+      "issued_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "meta": { "page": 1, "per_page": 20, "total": 4 }
+}
+```
+
+### `GET /finance/transactions`
+
+Paginated wallet ledger for the caller: `txn_type`, `amount`, `balance_after`,
+`reference_type`, `created_at`. Never exposes `gateway_ref`.
+
+---
+
+## 10. Notifications
+
+### `GET /notifications`
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "kind": "order_status",
+      "title": "Deliverable ready for review",
+      "body": "SVC-20260101-0007",
+      "reference_type": "service_order",
+      "reference_id": "uuid",
+      "read_at": null,
+      "created_at": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "meta": { "page": 1, "per_page": 20, "total": 3, "unread": 2 }
+}
+```
+
+### `PATCH /notifications/read`
+
+```json
+{ "ids": ["uuid"], "all": false }
+```
+
+Returns `{ "data": { "updated": 1 } }`.
+
+---
+
+## 11. Settings & Team
+
+Single workspace in v1; there is no workspace id in any path.
+
+### `GET /settings/profile` · `PATCH /settings/profile`
+
+Fields: `name`, `default_currency`, `locale`, `timezone`, `logo_key`
+(uploaded via §6, signed on read).
+
+### `GET /settings/team`
+
+```json
+{
+  "data": [
+    { "id": "uuid", "email": "a@b.com", "full_name": "A B", "role": "staff", "is_active": true, "last_seen_at": "..." }
+  ],
+  "meta": { "page": 1, "per_page": 20, "total": 3 }
+}
+```
+
+### `POST /settings/team/invite`
+
+Admin only. `{ "email": "...", "role": "staff" }`. Returns `201` with the
+invite id; `409 email_taken` when the user already exists.
+
+### `PATCH /settings/team/{user_id}`
+
+Admin only. `{ "role": "staff" | "admin", "is_active": true }`.
+An admin cannot demote or deactivate themselves — `409 invalid_state_transition`.
+
+### `GET /settings/api-keys` · `POST /settings/api-keys`
+
+The secret is returned **once**, on creation, and never again:
+
+```json
+{ "data": { "id": "uuid", "name": "CI", "prefix": "erp_live_ab12", "secret": "erp_live_ab12_…", "created_at": "..." } }
+```
+
+### `DELETE /settings/api-keys/{id}`
+
+Revokes immediately. Existing keys are listed with `last_used_at`.
+
+---
+
+## 12. Rate Limits (extended)
+
+| Scope | Limit |
+| --- | --- |
+| `POST /digital/generate` | 10 / hour / user, 2 concurrent jobs |
+| Uploads | 50 / hour / user |
+| Webhooks | 600 / minute / provider (gateway bursts) |
+| Team invites | 20 / hour / workspace |
