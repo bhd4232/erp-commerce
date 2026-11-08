@@ -29,8 +29,11 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 - [x] CI runs fmt, clippy, migrations, tests
 - [ ] First real `cargo test` run on a machine with a toolchain
 
-> Local note: this workspace has no Rust toolchain, so the last box stays open
-> until CI or a dev machine runs it.
+> **Toolchain gate:** this workspace has no Rust toolchain, no container runtime,
+> and `curl` aborts under the current emulation. Code written here is unverified.
+> P0 exits on the **first green CI run**; an unavailable local toolchain is a
+> risk to manage, not a reason to delay. Keep changes small and reviewable so a
+> compile failure is cheap to localise.
 
 ---
 
@@ -42,9 +45,22 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 | --- | --- |
 | `GET /digital/products`, `GET /digital/products/{id}` | published only, no storage keys |
 | `POST /digital/checkout` | wallet debit + order + items + payment in one tx |
-| `GET /digital/entitlements` (vault) | joins `user_entitlements` |
+| `GET /digital/my-vault` | joins `user_entitlements`; expired grants excluded |
 | `POST /digital/download/{entitlement_id}` | `UPDATE ... RETURNING` counter, then `presign_get` |
 | `audit_download_logs` write | same tx as the counter |
+| `POST /digital/orders/{id}/refund` | `refund` ledger row + entitlement revoke |
+| `scripts/seed.sql` | seed-only catalogue **and** `seed_wallet()` fixture |
+
+**Scope decision (v1):** product creation is **seed-only**. There is no admin
+product CRUD; a new product is a `scripts/seed.sql` change. This avoids building
+an admin surface before the catalogue itself is proven. Revisit in P8.
+
+**Wallet funding:** P1 must be testable before P3 exists. So `scripts/seed.sql`
+ships a `seed_wallet(user_id, amount)` helper that, in one transaction, updates
+`users.wallet_balance` **and** inserts the matching
+`wallet_transactions(txn_type = 'credit', reference_type = 'manual')` row.
+Integration tests call it directly. No top-up API and no admin credit endpoint
+is added in P1 — the only sanctioned funding path is the ledger-writing fixture.
 
 **Exit criteria**
 
@@ -52,9 +68,39 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 - [ ] Concurrent double-checkout cannot overspend (test with two connections)
 - [ ] Download beyond `max_downloads` returns `410` and does not increment
 - [ ] No DTO contains `storage_path`; test asserts it
+- [ ] `seed_wallet` leaves `wallet_balance` equal to the derived ledger balance
+- [ ] Refund writes one `refund` row and expires every entitlement of the order
+      in the same transaction; second refund returns `409`
 - [ ] Integration tests cover success + 4xx for every endpoint
 
 **Docs:** `API_SPEC.md` §2, `WORKFLOWS.md` §3, `DATABASE.md` §3.
+
+---
+
+## P1.5 — Optional Vertical Slice (UI proof) `[optional]`
+
+**Goal:** see P1 in a browser before building P2, so backend work stays honest.
+
+Do this only if P1 is green. It is a slice, not the frontend phase: the screens
+here are revisited in P6 for polish, but their contracts do not change.
+
+In scope:
+
+1. Tailwind v4 `@theme`, dark/light tokens, Anek Bangla, `AppLayout`
+2. `api/client.ts`, `auth.store`, router guards
+3. Login / register, product catalogue, product detail, vault, download button
+
+Explicitly **out of scope:** pipeline UI, generator studio, billing screens,
+settings, Tauri. Those stay in P6/P7.
+
+**Exit criteria**
+
+- [ ] A real wallet-funded checkout is visible end to end in a browser
+- [ ] Download button returns a working pre-signed URL and increments the counter
+- [ ] `bn-BD` and `en-US` both render without clipping
+- [ ] No hex colour outside `styles/main.css`
+
+> If skipped, nothing else changes: P6 still owns the whole frontend.
 
 ---
 
@@ -65,6 +111,8 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 | Deliverable | Notes |
 | --- | --- |
 | `POST /services/orders`, `GET /services/orders` | filters: status, assignee, service |
+| `GET /services/orders/{id}` | order workspace: order, brief, deliverables, revisions, `allowed_actions` |
+| `POST /uploads/presign` | brief asset PUT; also required by P6 brief form |
 | `POST /services/orders/{id}/brief` | validate against `agency_services.brief_template` |
 | `PATCH /services/orders/{id}/status` | `allowed_actions` + `SELECT ... FOR UPDATE` |
 | `POST /services/orders/{id}/deliverables` | pre-signed upload, watermark job enqueued |
@@ -142,6 +190,8 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 - `GET/PATCH /settings/profile`
 - `GET /settings/team`, invite, role change (no self-demotion)
 - API keys: secret shown once, `DELETE` revokes immediately
+- `mail.send` queue + worker: invite and order-status email (contract in
+  `WORKER_JOBS.md` §1)
 
 **Exit criteria:** unread count matches the partial index; revoked key fails
 auth on the next request; role change is audited.
