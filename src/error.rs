@@ -10,6 +10,10 @@ pub enum AppError {
     #[error("validation error: {0}")]
     Validation(String),
 
+    /// Well-formed but semantically invalid: inactive product, empty cart.
+    #[error("unprocessable: {0}")]
+    Unprocessable(String),
+
     #[error("unauthorized")]
     Unauthorized,
 
@@ -54,6 +58,9 @@ impl AppError {
     fn status_and_code(&self) -> (StatusCode, &'static str) {
         match self {
             AppError::Validation(_) => (StatusCode::BAD_REQUEST, "validation_error"),
+            AppError::Unprocessable(_) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, "unprocessable_entity")
+            }
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
             AppError::Forbidden => (StatusCode::FORBIDDEN, "forbidden"),
             AppError::NotFound => (StatusCode::NOT_FOUND, "not_found"),

@@ -55,7 +55,8 @@ pub struct VaultItem {
     pub entitlement_id: Uuid,
     pub product: VaultProductRef,
     /// The version that will actually be served on the next download.
-    pub version: String,
+    /// `None` for products without a current file (e.g. `dynamic_tool`).
+    pub version: Option<String>,
     pub download_count: i32,
     pub max_downloads: i32,
     pub expires_at: Option<DateTime<Utc>>,
@@ -99,4 +100,15 @@ pub struct CheckoutResponse {
     pub status: String,
     pub total_amount: Decimal,
     pub entitlements_created: usize,
+}
+
+// --- Refund ------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+pub struct RefundResponse {
+    pub order_id: Uuid,
+    pub order_number: String,
+    pub status: String,
+    pub refunded_amount: Decimal,
+    pub currency: String,
 }

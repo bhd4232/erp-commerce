@@ -58,6 +58,7 @@ List resource:
 | 410 | `downloads_exhausted` | `download_count >= max_downloads` |
 | 413 | `payload_too_large` | Upload exceeds the allowed size |
 | 415 | `unsupported_media_type` | Upload type is not allow-listed |
+| 422 | `unprocessable_entity` | Well-formed but semantically invalid: empty cart, inactive product |
 | 422 | `brief_incomplete` | Brief payload fails the service template |
 | 429 | `rate_limited` | Throttled |
 | 502 | `generation_failed` | Renderer/LLM failed; credits refunded |
@@ -249,6 +250,39 @@ Authenticated. Creates an `orders` row.
 Errors: `402 insufficient_funds` (wallet), `409 invalid_state_transition` (replaying a completed idempotency key with a different body), `422` for inactive products.
 
 Idempotency: the same `idempotency_key` replays the original response and must not create a second entitlement.
+
+### `POST /digital/orders/{order_id}/refund`
+
+Admin only (`403` for anyone else). Full refund of a paid order.
+
+```json
+{
+  "data": {
+    "order_id": "uuid",
+    "order_number": "DIG-20260101-0001",
+    "status": "refunded",
+    "refunded_amount": 19.00,
+    "currency": "USD"
+  },
+  "meta": null
+}
+```
+
+One transaction: insert a `refund` row in `wallet_transactions`, credit
+`users.wallet_balance` with the returned `balance_after`, set the order to
+`refunded`, and expire every entitlement whose `order_ref` matches the order
+number.
+
+Errors:
+
+| Case | Status |
+| --- | --- |
+| Order not found | `404 not_found` |
+| Order is not `paid` (already refunded, pending, cancelled) | `409 invalid_state_transition` |
+| Entitlement already downloaded | `409 invalid_state_transition` |
+| More than 24 h after purchase | `409 invalid_state_transition` |
+
+Refunds never mutate the original debit row — see `BILLING_WALLET_SPEC.md` §5.4.
 
 ---
 
