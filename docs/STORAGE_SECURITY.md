@@ -17,7 +17,8 @@ bucket-root/
 │       └── final/          <-- Unlocked only when order status is 'completed'
 └── user-uploads/
     └── {user_id}/
-        └── briefs/         <-- Client-submitted brand assets, logos, references
+        ├── briefs/         <-- Client-submitted brand assets, logos, references
+        └── generated/      <-- AI outputs, one per generation job, private
 ```
 
 ### 1.1 Storage-Key Rules
@@ -40,6 +41,11 @@ bucket-root/
 | **Worker** | read | read/write | write | read/write | read | read |
 
 "IAM" in this table means the backend decides and signs; the bucket policy itself grants nothing to end users. Only the API/worker credentials touch the bucket directly.
+
+`user-uploads/{user_id}/generated/` is written **only** by the AI worker. The
+owner may read an output through a signed URL issued by
+`GET /digital/generate/{job_id}`; there is no direct write path and no listing
+permission for anyone.
 
 ### 2.1 Bucket Policy Skeleton
 

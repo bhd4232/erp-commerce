@@ -103,9 +103,15 @@ An implementing agent must read these in order before writing code:
 3. `docs/API_SPEC.md` — the HTTP contract
 4. `docs/WORKFLOWS.md` — the state machines behind the contract
 5. `docs/STORAGE_SECURITY.md` — how bytes are protected
-6. `docs/UI_DESIGN_SYSTEM.md` — tokens, type, component contracts
-7. `docs/UI_SCREEN_SPECS.md` — screen layouts and data sources
-8. `docs/UI_USER_FLOWS.md` — interaction flows and error handling
+6. `docs/BILLING_WALLET_SPEC.md` — wallet, AI credits, gateways, invoices
+7. `docs/AI_GENERATOR_PIPELINE.md` — generation jobs, SSE, credit refunds
+8. `docs/WORKER_JOBS.md` — queues, retries, job contracts
+9. `docs/FRONTEND_ARCHITECTURE.md` — Vue 3 / Pinia / router structure
+10. `docs/UI_DESIGN_SYSTEM.md` — tokens, type, component contracts
+11. `docs/UI_SCREEN_SPECS.md` — screen layouts and data sources
+12. `docs/UI_USER_FLOWS.md` — interaction flows and error handling
+13. `docs/I18N.md` — Bengali-first formatting rules
+14. `docs/TAURI_NATIVE_SPEC.md` — desktop/mobile capabilities
 
 UI work additionally requires `assets/fonts/anek-bangla/README.md`. The font is
 self-hosted; importing it from a CDN is not permitted.

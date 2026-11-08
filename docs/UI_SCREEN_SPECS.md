@@ -150,8 +150,9 @@ strings ad hoc.
   Do not block the canvas while streaming.
 - States: initial empty canvas illustration; generating (disabled export);
   generation failed → retry with the same inputs preserved.
-- Data: generator endpoint (to be defined in `API_SPEC.md` §6 when implemented);
-  uploads use the pre-signed PUT flow.
+- Data: `POST /digital/generate` and `GET /digital/generate/{job_id}` (see
+  `API_SPEC.md` §7 and `AI_GENERATOR_PIPELINE.md`); uploads use the pre-signed
+  PUT flow in `API_SPEC.md` §6.
 
 ---
 
