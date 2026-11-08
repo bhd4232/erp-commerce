@@ -6,6 +6,7 @@ use axum::{Json, Router};
 use super::dtos::{LoginRequest, LoginResponse, RegisterRequest, UserProfile};
 use super::service;
 use crate::common::extractors::AuthUser;
+use crate::common::response::Envelope;
 use crate::error::AppError;
 use crate::state::AppState;
 
@@ -19,21 +20,23 @@ pub fn router() -> Router<AppState> {
 async fn register(
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
-) -> Result<(StatusCode, Json<UserProfile>), AppError> {
+) -> Result<(StatusCode, Json<Envelope<UserProfile>>), AppError> {
     let profile = service::register(&state, payload).await?;
-    Ok((StatusCode::CREATED, Json(profile)))
+    Ok((StatusCode::CREATED, Json(Envelope::new(profile))))
 }
 
 async fn login(
     State(state): State<AppState>,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<LoginResponse>, AppError> {
-    Ok(Json(service::login(&state, payload).await?))
+) -> Result<Json<Envelope<LoginResponse>>, AppError> {
+    Ok(Json(Envelope::new(service::login(&state, payload).await?)))
 }
 
 async fn me(
     State(state): State<AppState>,
     auth: AuthUser,
-) -> Result<Json<UserProfile>, AppError> {
-    Ok(Json(service::current_user(&state, auth.id).await?))
+) -> Result<Json<Envelope<UserProfile>>, AppError> {
+    Ok(Json(Envelope::new(
+        service::current_user(&state, auth.id).await?,
+    )))
 }

@@ -2,4 +2,5 @@
 
 pub mod auth;
 pub mod extractors;
+pub mod response;
 pub mod storage;
