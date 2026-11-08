@@ -1,0 +1,24 @@
+# Cursor / other-agent entry point
+#
+# The canonical rules live in AGENTS.md. Read that file first; this file only
+# mirrors the non-negotiables so editors that look for .cursorrules still see
+# them.
+
+Read and obey `AGENTS.md` and everything under `docs/` before writing code.
+
+Hard rules:
+
+- No `.unwrap()` / `.expect()` in handlers, services, or extractors.
+- No SQL in handlers; `sqlx` never appears in `handlers.rs`.
+- Every money/credit mutation runs in one PostgreSQL transaction with its
+  ledger row.
+- Never expose S3 keys — only `presign_get` URLs leave the API.
+- Service order status changes only through the service layer with
+  `SELECT ... FOR UPDATE`; illegal transitions return `409`.
+- Frontend: `<script setup lang="ts">`, all HTTP via `src/api/client.ts`,
+  colours via CSS tokens only, no CDN fonts.
+- Font is `Anek Bangla Variable`, self-hosted in `assets/fonts/anek-bangla/`.
+- Migrations are append-only: add `000N_*.sql`, never edit an applied one.
+- Commits are topic-scoped Conventional Commits (e.g. `feat(auth): ...`).
+
+Full specification index: see `AGENTS.md` section 1.
