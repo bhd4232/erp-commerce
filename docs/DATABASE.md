@@ -329,3 +329,157 @@ These are enforced in the service layer inside a single transaction; the `CHECK`
 - Run migrations with a single-instance advisory lock (`pg_advisory_lock`) to avoid parallel DDL.
 - Soft retention: `audit_download_logs` older than 365 days can be archived; never deleted while the entitlement is live.
 - Backups: daily base backup + WAL archiving; point-in-time recovery target ≤ 5 minutes.
+
+---
+
+## 9. Wallet, Credits & Finance Extensions
+
+Added by `migrations/0003_wallet_credits.sql`,
+`0004_finance_notifications.sql`, and `0005_generation_jobs.sql`. Section 2.1's
+`wallet_transactions` contract is unchanged: `amount` stays positive and
+direction stays in `txn_type`.
+
+### 9.1 Payments & AI credits
+
+```sql
+-- users
+ai_credits INTEGER NOT NULL DEFAULT 0 CHECK (ai_credits >= 0)
+
+-- wallet_transactions (existing table, new columns)
+gateway      VARCHAR(50)   -- 'bkash' | 'sslcommerz' | 'stripe' | 'internal'
+gateway_ref  VARCHAR(255)
+currency     CHAR(3) NOT NULL DEFAULT 'USD'
+
+-- Idempotency: one ledger credit per gateway transaction.
+CREATE UNIQUE INDEX idx_wallet_txn_gateway_ref
+  ON wallet_transactions(gateway, gateway_ref) WHERE gateway_ref IS NOT NULL;
+
+CREATE TYPE ai_credit_txn_type AS ENUM ('grant','topup','spend','refund','adjustment');
+
+ai_credit_transactions(
+  id UUID PK,
+  user_id UUID -> users(id) ON DELETE CASCADE,
+  txn_type ai_credit_txn_type,
+  credits INTEGER > 0,              -- always positive, direction from txn_type
+  balance_after INTEGER >= 0,
+  reference_type VARCHAR(50),       -- 'generation_job' | 'purchase' | 'manual'
+  reference_id UUID,
+  note TEXT,
+  created_at TIMESTAMPTZ
+)
+```
+
+`users.ai_credits` is a cached projection of `ai_credit_transactions`; the two
+are written in one transaction. See `BILLING_WALLET_SPEC.md` §3–4.
+
+### 9.2 Webhooks
+
+```sql
+CREATE TYPE webhook_status AS ENUM ('received','verified','processed','rejected','failed');
+
+payment_webhooks(
+  id UUID PK,
+  provider VARCHAR(50),
+  event_id VARCHAR(255),
+  event_type VARCHAR(100),
+  payload JSONB,
+  signature_valid BOOLEAN,
+  status webhook_status,
+  processed_at TIMESTAMPTZ,
+  error TEXT,
+  created_at TIMESTAMPTZ,
+  UNIQUE (provider, event_id)       -- idempotency key
+)
+```
+
+Duplicate `(provider, event_id)` → `200`, no ledger change.
+
+### 9.3 Invoices & notifications
+
+```sql
+CREATE TYPE invoice_status AS ENUM ('draft','open','paid','void','refunded');
+
+invoices(
+  id UUID PK,
+  invoice_number VARCHAR(50) UNIQUE,   -- INV-YYYYMM-000001
+  user_id UUID -> users(id),
+  order_id UUID -> orders(id),
+  currency CHAR(3) DEFAULT 'USD',
+  subtotal NUMERIC(12,2) >= 0,
+  tax_amount NUMERIC(12,2) >= 0,
+  total NUMERIC(12,2) >= 0,
+  status invoice_status DEFAULT 'open',
+  issued_at TIMESTAMPTZ,
+  paid_at TIMESTAMPTZ,
+  pdf_path TEXT,                        -- storage key, never returned
+  created_at TIMESTAMPTZ
+)
+
+CREATE TYPE notification_kind AS ENUM
+  ('order_status','deliverable_ready','revision_requested','download','payment','system');
+
+notifications(
+  id UUID PK,
+  user_id UUID -> users(id) ON DELETE CASCADE,
+  kind notification_kind,
+  title VARCHAR(200),
+  body TEXT,
+  reference_type VARCHAR(50),
+  reference_id UUID,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ
+)
+```
+
+Invoices are append-only. `pdf_path` is signed on read with a 900 s TTL
+(`STORAGE_SECURITY.md` §3).
+
+### 9.4 Generation jobs
+
+```sql
+CREATE TYPE generation_tool   AS ENUM ('promo_banner','ad_copy','packing_slip');
+CREATE TYPE generation_status AS ENUM ('queued','running','succeeded','failed','cancelled');
+
+generation_jobs(
+  id UUID PK,
+  user_id UUID -> users(id) ON DELETE CASCADE,
+  tool generation_tool,
+  status generation_status DEFAULT 'queued',
+  params JSONB,
+  credits_charged INTEGER >= 0,
+  output_path TEXT,                     -- storage key, never returned
+  output_mime VARCHAR(100),
+  error TEXT,
+  idempotency_key VARCHAR(100),
+  started_at TIMESTAMPTZ,
+  finished_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ,
+  UNIQUE (user_id, idempotency_key)     -- safe retries, no double charge
+)
+```
+
+Job lifecycle and refund rules: `AI_GENERATOR_PIPELINE.md` §2–3.
+
+### 9.5 New indexes
+
+| Index | Purpose |
+| --- | --- |
+| `idx_wallet_txn_gateway_ref` (partial unique) | gateway idempotency |
+| `idx_ai_credit_txn_user` | ledger pagination |
+| `idx_ai_credit_txn_ref` (partial) | refund lookup by job |
+| `idx_payment_webhooks_status` | webhook worker scan |
+| `idx_invoices_user_issued` | billing list |
+| `idx_invoices_open` (partial) | unpaid invoice sweep |
+| `idx_notifications_unread` (partial) | unread badge |
+| `idx_generation_jobs_active` (partial) | reaper + queue depth |
+
+### 9.6 Invariants added
+
+1. `users.ai_credits` = derived balance of `ai_credit_transactions`.
+2. `(gateway, gateway_ref)` is unique when `gateway_ref` is present — a gateway
+   transaction can never credit the wallet twice.
+3. `(provider, event_id)` is unique in `payment_webhooks`.
+4. A `generation_jobs` row and its `spend` ledger row are created in one
+   transaction; a failed job and its `refund` row are also one transaction.
+5. `invoices` are never deleted or updated after `paid`, except
+   `paid → refunded`.
