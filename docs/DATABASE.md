@@ -483,3 +483,17 @@ Job lifecycle and refund rules: `AI_GENERATOR_PIPELINE.md` §2–3.
    transaction; a failed job and its `refund` row are also one transaction.
 5. `invoices` are never deleted or updated after `paid`, except
    `paid → refunded`.
+
+### 9.7 Order numbers
+
+```sql
+CREATE SEQUENCE order_number_seq START 1;
+
+next_order_number('DIG')  -- DIG-20260108-0001
+```
+
+`migrations/0006_order_numbers.sql`. A sequence, not `COUNT(*) + 1`: two
+concurrent checkouts must never compute the same next number. The prefix
+identifies the domain (`DIG` for digital, `SVC` for service orders). `to_char`
+is used instead of `lpad`, which silently truncates once the counter passes
+9999.
