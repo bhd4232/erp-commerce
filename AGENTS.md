@@ -63,8 +63,9 @@ types, `service.rs` = rules, `handlers.rs` = HTTP only.
 - **No `.unwrap()` / `.expect()`** in handlers, services, or extractors.
   Propagate with `?` into `AppError`. Panics are acceptable only in `main`
   startup and tests.
-- **No SQL in handlers.** Handlers call services; services call repositories.
-  `sqlx` must not appear in `handlers.rs`.
+- **No SQL in handlers.** SQL lives in `service.rs`, next to the rules it
+  enforces. There is no repository layer and there will not be one. `sqlx`
+  must not appear in `handlers.rs`.
 - **Every money or credit mutation runs in one transaction.** Never update a
   cached balance without inserting the matching ledger row.
 - **Respect the state machines.** `services` transitions go through the
@@ -155,3 +156,35 @@ A task is done when:
 4. New tables appear in `docs/DATABASE.md` and a migration.
 5. No secret, storage key, or signed URL is logged or returned.
 6. The UI states (loading / empty / error / disabled) exist for new screens.
+
+---
+
+## 9. Anti-Bloat
+
+Applies to every file you touch. If a rule here conflicts with a habit, this
+section wins.
+
+- Write the **minimum** code that satisfies the current spec. No abstractions
+  for "later", no trait/factory/manager layers, no unused parameters and no
+  unused struct fields.
+- SQL lives in `service.rs`. Reuse means a small private `fn` in the same
+  file, not a new module.
+- No new crate, npm package, config flag, env var, or background queue
+  without asking first.
+- Prefer an existing `AppError` variant and an existing DTO over a new one.
+- No obvious comments (`// increment the counter`). A comment is allowed only
+  for a non-obvious invariant or a security guard, and then it is one line.
+- Size limits are a **smell, not a law**: a function that needs a section
+  comment to stay readable, or a file past ~300 lines, should be split by
+  domain. Never split by layer and never split only to hit a number.
+- No mock data, dummy endpoints, or fields absent from `docs/DATABASE.md` and
+  `docs/API_SPEC.md`.
+
+**Not bloat — do not cut these:** input validation, webhook signature
+verification, idempotency keys and unique indexes, atomic
+`UPDATE ... RETURNING` balance updates, error-to-envelope mapping, migrations
+for new tables, tests, and the deliberately documented `501` stubs.
+
+**Reporting.** After a change, state in at most five lines: files touched,
+what was verified, what was not (and why), and any spec conflict. Terse, but
+never hide a failure, an unverified claim, or a decision you made.

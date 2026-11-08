@@ -20,5 +20,9 @@ Hard rules:
 - Font is `Anek Bangla Variable`, self-hosted in `assets/fonts/anek-bangla/`.
 - Migrations are append-only: add `000N_*.sql`, never edit an applied one.
 - Commits are topic-scoped Conventional Commits (e.g. `feat(auth): ...`).
+- **Anti-bloat rules live in `AGENTS.md` §9 and are binding.** Write the
+  minimum code the spec needs; no repository layer, no speculative traits, no
+  new crate/config flag without asking. Do not copy those rules here — one
+  source of truth.
 
 Full specification index: see `AGENTS.md` section 1.
