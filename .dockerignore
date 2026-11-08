@@ -1,0 +1,15 @@
+target/
+.git/
+.github/
+docs/
+assets/
+frontend/
+.env
+.env.local
+*.log
+Dockerfile
+docker-compose.yml
+README.md
+.gitignore
+.cursorrules
+AGENTS.md
