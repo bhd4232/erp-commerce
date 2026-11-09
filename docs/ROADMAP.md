@@ -169,6 +169,13 @@ revision, approve, cancel/refund, and the final download gate.
 | `GET /finance/invoices`, `/{id}` | signed PDF, 900 s |
 | `billing.reconcile` cron | freezes on drift, never auto-fixes |
 
+**Current state:** `GET /finance/wallet`, `GET /finance/transactions`,
+`POST /finance/topup`, `GET /finance/invoices`, `GET /finance/invoices/{id}`
+and `POST /webhooks/payment/{provider}` are implemented. Webhooks verify a
+Stripe-style HMAC (or a shared secret for bKash/SSLCommerz), are idempotent on
+`(provider, event_id)`, and credit the wallet + write the ledger row + invoice
+in one transaction.
+
 **Exit criteria**
 
 - [ ] Replayed webhook changes no balance (`200`, no ledger row)
