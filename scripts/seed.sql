@@ -80,4 +80,16 @@ SELECT p.id,
  WHERE p.slug IN ('notion-template-pack', 'store-launch-checklist')
 ON CONFLICT (product_id, version) DO NOTHING;
 
+INSERT INTO agency_services (title, slug, base_price, brief_template)
+VALUES
+    ('Logo Design',
+     'logo-design',
+     250.00,
+     '{"required": ["brand_name", "style", "references"]}'::jsonb),
+    ('Social Media Kit',
+     'social-media-kit',
+     150.00,
+     '{"required": ["brand_name", "platforms"]}'::jsonb)
+ON CONFLICT (slug) DO NOTHING;
+
 COMMIT;
