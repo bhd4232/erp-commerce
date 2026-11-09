@@ -55,9 +55,7 @@ fn validate_checkout(req: &CheckoutRequest) -> Result<(), AppError> {
             return Err(AppError::Validation("quantity must be 1-99".into()));
         }
         if !seen.insert(item.product_id) {
-            return Err(AppError::Validation(
-                "duplicate product in cart".into(),
-            ));
+            return Err(AppError::Validation("duplicate product in cart".into()));
         }
     }
 
@@ -95,7 +93,9 @@ pub async fn checkout(
         let row = rows
             .iter()
             .find(|r| r.id == item.product_id)
-            .ok_or_else(|| AppError::Unprocessable(format!("unknown product {}", item.product_id)))?;
+            .ok_or_else(|| {
+                AppError::Unprocessable(format!("unknown product {}", item.product_id))
+            })?;
 
         if !row.is_active {
             return Err(AppError::Unprocessable(format!(
@@ -294,10 +294,7 @@ async fn replay(
 /// Refused when the entitlement has been downloaded or the 24 h window has
 /// passed. The ledger row, the balance, the order status and the entitlement
 /// revoke all happen in one transaction.
-pub async fn refund_order(
-    state: &AppState,
-    order_id: Uuid,
-) -> Result<RefundResponse, AppError> {
+pub async fn refund_order(state: &AppState, order_id: Uuid) -> Result<RefundResponse, AppError> {
     let mut tx = state.db.begin().await?;
 
     let order = sqlx::query_as::<_, RefundableOrder>(

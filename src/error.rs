@@ -103,6 +103,3 @@ impl IntoResponse for AppError {
         (status, body).into_response()
     }
 }
-
-/// Convenience alias used by handlers.
-pub type AppResult<T> = Result<T, AppError>;

@@ -35,5 +35,4 @@ pub struct User {
     pub wallet_balance: Decimal,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
 }

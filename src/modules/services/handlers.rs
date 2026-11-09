@@ -5,7 +5,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use super::dtos::{
-    Approved, AssignRequest, BriefSubmitted, Cancelled, CancelRequest, CreateServiceOrderRequest,
+    Approved, AssignRequest, BriefSubmitted, CancelRequest, Cancelled, CreateServiceOrderRequest,
     DeliverableSubmitted, DeliveryDownload, RequestRevisionRequest, RevisionRequested,
     ServiceOrderDetail, ServiceOrderSummary, SubmitBriefRequest, SubmitDeliverableRequest,
 };
@@ -70,7 +70,9 @@ async fn submit_brief(
     Path(order_id): Path<Uuid>,
     Json(payload): Json<SubmitBriefRequest>,
 ) -> Result<Json<BriefSubmitted>, AppError> {
-    Ok(Json(service::submit_brief(&state, &auth, order_id, payload).await?))
+    Ok(Json(
+        service::submit_brief(&state, &auth, order_id, payload).await?,
+    ))
 }
 
 async fn assign(
@@ -79,7 +81,9 @@ async fn assign(
     Path(order_id): Path<Uuid>,
     Json(payload): Json<AssignRequest>,
 ) -> Result<Json<ServiceOrderSummary>, AppError> {
-    Ok(Json(service::assign(&state, &auth, order_id, payload).await?))
+    Ok(Json(
+        service::assign(&state, &auth, order_id, payload).await?,
+    ))
 }
 
 async fn submit_deliverable(
@@ -117,7 +121,9 @@ async fn cancel(
     Path(order_id): Path<Uuid>,
     Json(payload): Json<CancelRequest>,
 ) -> Result<Json<Cancelled>, AppError> {
-    Ok(Json(service::cancel(&state, &auth, order_id, payload).await?))
+    Ok(Json(
+        service::cancel(&state, &auth, order_id, payload).await?,
+    ))
 }
 
 async fn deliverable_download(

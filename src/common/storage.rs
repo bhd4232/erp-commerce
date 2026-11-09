@@ -13,6 +13,10 @@ use crate::config::Config;
 use crate::error::AppError;
 
 /// Prefix layout. Mirrors docs/STORAGE_SECURITY.md section 1.
+///
+/// Used from P2 onwards (brief uploads, deliverables); kept here so there is
+/// exactly one place that knows the bucket layout.
+#[allow(dead_code)]
 pub mod prefix {
     pub const PRODUCTS: &str = "protected-products";
     pub const DELIVERABLES: &str = "service-deliverables";
@@ -102,7 +106,10 @@ impl Storage {
             .get_object()
             .bucket(&self.bucket)
             .key(key)
-            .response_content_disposition(format!("attachment; filename=\"{}\"", sanitize_filename(filename)))
+            .response_content_disposition(format!(
+                "attachment; filename=\"{}\"",
+                sanitize_filename(filename)
+            ))
             .response_content_type(mime_type)
             .presigned(signing)
             .await
@@ -115,11 +122,7 @@ impl Storage {
     ///
     /// Callers must validate purpose, extension, MIME and size *before*
     /// calling this, and must verify the object after upload.
-    pub async fn presign_put(
-        &self,
-        key: &str,
-        content_type: &str,
-    ) -> Result<String, AppError> {
+    pub async fn presign_put(&self, key: &str, content_type: &str) -> Result<String, AppError> {
         let signing = PresigningConfig::expires_in(self.upload_ttl)
             .map_err(|e| AppError::Internal(format!("invalid signing config: {e}")))?;
 

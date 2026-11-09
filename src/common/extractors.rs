@@ -27,14 +27,6 @@ pub enum Role {
 }
 
 impl Role {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Role::Admin => "admin",
-            Role::Staff => "staff",
-            Role::Client => "client",
-        }
-    }
-
     fn parse(raw: &str) -> Option<Self> {
         match raw {
             "admin" => Some(Role::Admin),
@@ -46,14 +38,6 @@ impl Role {
 }
 
 impl AuthUser {
-    pub fn is_admin(&self) -> bool {
-        self.role == Role::Admin
-    }
-
-    pub fn is_staff(&self) -> bool {
-        self.role == Role::Staff
-    }
-
     /// Guard for role-restricted routes. Returns 403, never 404: the resource
     /// is known to exist, the caller simply may not act on it.
     pub fn require_role(&self, allowed: &[Role]) -> Result<(), AppError> {

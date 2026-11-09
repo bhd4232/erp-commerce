@@ -8,7 +8,7 @@
 use uuid::Uuid;
 
 use super::dtos::{
-    Approved, AssignRequest, BriefSubmitted, Cancelled, CancelRequest, CreateServiceOrderRequest,
+    Approved, AssignRequest, BriefSubmitted, CancelRequest, Cancelled, CreateServiceOrderRequest,
     DeliverableSubmitted, DeliveryDownload, RequestRevisionRequest, RevisionRequested,
     ServiceOrderDetail, ServiceOrderSummary, SubmitBriefRequest, SubmitDeliverableRequest,
 };

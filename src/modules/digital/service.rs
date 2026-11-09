@@ -290,13 +290,11 @@ pub async fn download(
 
     tx.commit().await?;
 
-    let filename = file
-        .1
-        .rsplit('/')
-        .next()
-        .unwrap_or("download")
-        .to_string();
-    let download_url = state.storage.presign_get(&file.1, &filename, &file.2).await?;
+    let filename = file.1.rsplit('/').next().unwrap_or("download").to_string();
+    let download_url = state
+        .storage
+        .presign_get(&file.1, &filename, &file.2)
+        .await?;
 
     Ok(DownloadResponse {
         download_url,
@@ -321,9 +319,7 @@ async fn classify_download_failure(
     match row {
         Ok(None) => AppError::NotFound,
         Ok(Some((owner, _, _, _))) if owner != user_id => AppError::Forbidden,
-        Ok(Some((_, Some(expires), _, _))) if expires <= Utc::now() => {
-            AppError::EntitlementExpired
-        }
+        Ok(Some((_, Some(expires), _, _))) if expires <= Utc::now() => AppError::EntitlementExpired,
         // Either the limit was already reached, or another request consumed
         // the last slot between our UPDATE and this read.
         Ok(Some(_)) => AppError::DownloadsExhausted,
