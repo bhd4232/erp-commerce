@@ -1,9 +1,3 @@
-mod common;
-mod config;
-mod error;
-mod modules;
-mod state;
-
 use std::sync::Arc;
 
 use axum::Router;
@@ -11,9 +5,10 @@ use sqlx::postgres::PgPoolOptions;
 use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
-use crate::common::storage::Storage;
-use crate::config::Config;
-use crate::state::AppState;
+use erp_commerce::common::storage::Storage;
+use erp_commerce::config::Config;
+use erp_commerce::modules;
+use erp_commerce::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
