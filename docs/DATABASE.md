@@ -508,3 +508,30 @@ ALTER TABLE order_deliverables ADD COLUMN source_preview_path TEXT;
 watermark worker. `watermarked_preview_path` stays NULL until the worker has
 written the safe copy, so `GET /services/orders/{id}` can never sign the raw
 file. `final_asset_path` is only signed after `completed` + `is_approved`.
+
+
+### 9.9 Top-up intents and invoice numbers
+
+```sql
+CREATE TYPE topup_status AS ENUM ('pending', 'paid', 'expired', 'cancelled');
+
+topup_intents(
+  id UUID PK, user_id UUID -> users(id), amount NUMERIC(12,2) > 0,
+  currency CHAR(3) DEFAULT 'USD', provider VARCHAR(50),
+  status topup_status DEFAULT 'pending', provider_ref VARCHAR(255),
+  expires_at TIMESTAMPTZ, paid_at TIMESTAMPTZ, created_at TIMESTAMPTZ
+)
+```
+
+A top-up is a gateway checkout in flight; the wallet is credited only by the
+webhook handler, inside one transaction with the `credit` ledger row, the
+`paid` status and the invoice.
+
+```sql
+CREATE SEQUENCE invoice_number_seq START 1;
+next_invoice_number()  -- INV-202611-000001
+```
+
+Invoices are append-only and issued per paid top-up (and later per paid order).
+`pdf_path` stays nullable until the PDF worker exists; the API returns a signed
+`pdf_url` only when it is set.
