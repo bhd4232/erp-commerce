@@ -3,7 +3,9 @@
 
 use std::sync::Arc;
 
+use chrono::{Duration, Utc};
 use rust_decimal::Decimal;
+use serde_json::json;
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -12,9 +14,12 @@ use erp_commerce::common::pagination::Page;
 use erp_commerce::common::storage::Storage;
 use erp_commerce::config::Config;
 use erp_commerce::error::AppError;
-use erp_commerce::modules::services::dtos::CreateServiceOrderRequest;
+use erp_commerce::modules::services::dtos::{
+    AssignRequest, CancelRequest, CreateServiceOrderRequest, RequestRevisionRequest,
+    SubmitBriefRequest, SubmitDeliverableRequest,
+};
 use erp_commerce::modules::services::models::ServiceStatus;
-use erp_commerce::modules::services::service;
+use erp_commerce::modules::services::{service, transitions};
 use erp_commerce::modules::uploads::dtos::PresignRequest;
 use erp_commerce::modules::uploads::service as uploads;
 use erp_commerce::state::AppState;
@@ -329,4 +334,180 @@ async fn presign_enforces_the_allow_list(pool: PgPool) {
     )
     .await;
     assert!(matches!(huge, Err(AppError::PayloadTooLarge)));
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn the_whole_pipeline_runs_from_brief_to_download(pool: PgPool) {
+    let app = app(&pool).await;
+    let alice = user(&pool, "alice@example.com", "client").await;
+    let staff = user(&pool, "staff@example.com", "staff").await;
+    fund(&pool, alice, "100.00").await;
+    let service_id = agency_service(&pool, "logo-design", "40.00").await;
+
+    let order = service::create_order(&app, alice, CreateServiceOrderRequest { service_id })
+        .await
+        .expect("order");
+    let client = actor(alice, Role::Client);
+
+    let missing = transitions::submit_brief(
+        &app,
+        &client,
+        order.id,
+        SubmitBriefRequest {
+            payload: json!({}),
+            uploaded_asset_keys: vec![],
+        },
+    )
+    .await
+    .unwrap_err();
+    match missing {
+        AppError::BriefIncomplete(keys) => assert_eq!(keys, vec!["brand_name".to_string()]),
+        other => panic!("expected BriefIncomplete, got {other:?}"),
+    }
+
+    let brief = transitions::submit_brief(
+        &app,
+        &client,
+        order.id,
+        SubmitBriefRequest {
+            payload: json!({ "brand_name": "Acme" }),
+            uploaded_asset_keys: vec![format!("user-uploads/{alice}/briefs/logo.png")],
+        },
+    )
+    .await
+    .expect("brief");
+    assert_eq!(brief.status, ServiceStatus::InQueue);
+
+    let assigned = transitions::assign(
+        &app,
+        &actor(alice, Role::Admin),
+        order.id,
+        AssignRequest {
+            assigned_staff_id: staff,
+            due_at: Utc::now() + Duration::days(2),
+        },
+    )
+    .await
+    .expect("assign");
+    assert_eq!(assigned.status, ServiceStatus::InProgress);
+
+    let staff_actor = actor(staff, Role::Staff);
+    let first = transitions::submit_deliverable(
+        &app,
+        &staff_actor,
+        order.id,
+        SubmitDeliverableRequest {
+            final_asset_key: format!("service-deliverables/{}/final/v1.zip", order.id),
+            preview_asset_key: format!("service-deliverables/{}/raw/v1.png", order.id),
+            notes: Some("first pass".into()),
+        },
+    )
+    .await
+    .expect("deliverable 1");
+    assert_eq!(first.version, 1);
+    assert_eq!(first.preview_status, "processing");
+
+    // The worker would set this once the watermark exists.
+    sqlx::query("UPDATE service_orders SET status = 'under_review' WHERE id = $1")
+        .bind(order.id)
+        .execute(&pool)
+        .await
+        .expect("worker transition");
+
+    let revision = transitions::request_revision(
+        &app,
+        &client,
+        order.id,
+        RequestRevisionRequest {
+            deliverable_id: first.deliverable_id,
+            feedback: "logo bigger".into(),
+        },
+    )
+    .await
+    .expect("revision");
+    assert_eq!(revision.revisions_used, 1);
+
+    let second = transitions::submit_deliverable(
+        &app,
+        &staff_actor,
+        order.id,
+        SubmitDeliverableRequest {
+            final_asset_key: format!("service-deliverables/{}/final/v2.zip", order.id),
+            preview_asset_key: format!("service-deliverables/{}/raw/v2.png", order.id),
+            notes: None,
+        },
+    )
+    .await
+    .expect("deliverable 2");
+    assert_eq!(second.version, 2);
+
+    sqlx::query("UPDATE service_orders SET status = 'under_review' WHERE id = $1")
+        .bind(order.id)
+        .execute(&pool)
+        .await
+        .expect("worker transition");
+
+    let approved = transitions::approve(&app, &client, order.id)
+        .await
+        .expect("approve");
+    assert_eq!(approved.status, ServiceStatus::Completed);
+    assert_eq!(approved.approved_deliverable_id, second.deliverable_id);
+    assert!(approved.download_available);
+
+    let download = service::deliverable_download(&app, &client, order.id, second.deliverable_id)
+        .await
+        .expect("download");
+    assert!(download.download_url.contains("X-Amz-Signature"));
+    assert!(download.filename.ends_with(".zip"));
+
+    // A completed order is terminal.
+    let cancelled =
+        transitions::cancel(&app, &client, order.id, CancelRequest { reason: None }).await;
+    assert!(matches!(cancelled, Err(AppError::InvalidState(_))));
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn cancel_refunds_once_and_is_terminal(pool: PgPool) {
+    let app = app(&pool).await;
+    let alice = user(&pool, "alice@example.com", "client").await;
+    fund(&pool, alice, "100.00").await;
+    let service_id = agency_service(&pool, "logo-design", "40.00").await;
+
+    let order = service::create_order(&app, alice, CreateServiceOrderRequest { service_id })
+        .await
+        .expect("order");
+    assert_eq!(balance(&pool, alice).await, dec("60.00"));
+
+    let cancelled = transitions::cancel(
+        &app,
+        &actor(alice, Role::Client),
+        order.id,
+        CancelRequest {
+            reason: Some("changed my mind".into()),
+        },
+    )
+    .await
+    .expect("cancel");
+    assert_eq!(cancelled.status, ServiceStatus::Cancelled);
+    assert_eq!(cancelled.refunded, dec("40.00"));
+    assert_eq!(balance(&pool, alice).await, dec("100.00"));
+
+    let ledger: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM wallet_transactions
+          WHERE user_id = $1 AND txn_type = 'refund' AND reference_type = 'service_order'",
+    )
+    .bind(alice)
+    .fetch_one(&pool)
+    .await
+    .expect("ledger");
+    assert_eq!(ledger, 1);
+
+    let again = transitions::cancel(
+        &app,
+        &actor(alice, Role::Client),
+        order.id,
+        CancelRequest { reason: None },
+    )
+    .await;
+    assert!(matches!(again, Err(AppError::InvalidState(_))));
 }
