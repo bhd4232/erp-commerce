@@ -43,6 +43,11 @@ lint:
 test:
     cargo test --all-features
 
+# End-to-end smoke test against a running API.
+# Set DATABASE_URL to fund a fresh account through seed_wallet().
+smoke:
+    ./scripts/smoke.sh
+
 # Applies migrations against DATABASE_URL.
 migrate:
     sqlx migrate run

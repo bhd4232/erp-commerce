@@ -32,6 +32,21 @@ curl http://localhost:8080/healthz          # -> ok
 curl http://localhost:8080/api/v1/digital/products
 ```
 
+## Smoke test
+
+With the API running, one command exercises the P1 paths end to end:
+
+```bash
+./scripts/smoke.sh
+# other host:      ./scripts/smoke.sh https://api.example.com
+# fund a fresh user: DATABASE_URL=postgres://... ./scripts/smoke.sh
+```
+
+It checks health, register/login, the catalogue, the `402` path, checkout,
+idempotent replay, the vault, a signed download URL, and the `403` refund
+guard. Wallet-funded tests are skipped when there is no way to call
+`seed_wallet()` — there is no top-up API before P3.
+
 Services:
 
 | Service | URL | Credentials |
