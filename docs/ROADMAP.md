@@ -24,11 +24,15 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 
 **Exit criteria**
 
-- [x] `docker compose up -d` yields Postgres, Redis, MinIO, private bucket
-- [x] `sqlx migrate run` applies 0001–0005 from an empty database
+- [ ] `docker compose up -d` yields Postgres, Redis, MinIO, private bucket
+      — the image builds in CI, but the compose stack itself is unverified
+      here (no container runtime). Run it once on a Docker host.
+- [x] Migrations `0001`–`0006` apply cleanly, in order, each inside a single
+      transaction (local PostgreSQL 16; `sqlx migrate run` in CI)
 - [x] CI runs fmt, clippy, migrations, tests
-- [x] First real `cargo test` run (Rust 1.99.1): 5/5 unit tests, clippy
-      `-D warnings` and `cargo fmt --check` all clean
+- [x] First real `cargo test` run (Rust 1.99.1): 5 unit + 6 integration tests,
+      clippy `-D warnings`, `cargo fmt --check` all clean
+- [x] First green CI run (2026-11-09): backend 4m10s, Docker image 4m51s
 
 > **Toolchain gate:** this workspace has no Rust toolchain, no container runtime,
 > and `curl` aborts under the current emulation. Code written here is unverified.
