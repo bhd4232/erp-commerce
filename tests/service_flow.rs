@@ -44,6 +44,8 @@ fn config() -> Config {
         s3_secret_key: "test".into(),
         signed_url_ttl_seconds: 900,
         signed_upload_ttl_seconds: 300,
+        payment_webhook_secret: "test-webhook-secret".into(),
+        payment_redirect_base: None,
     }
 }
 

@@ -28,6 +28,10 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 
 jsonwebtoken = "9"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+subtle = "2"
 argon2 = "0.5"
 
 aws-config = { version = "1", features = ["behavior-version-latest"] }

@@ -64,6 +64,8 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1/digital", modules::digital::handlers::router())
         .nest("/api/v1/services", modules::services::handlers::router())
         .nest("/api/v1/uploads", modules::uploads::handlers::router())
+        .nest("/api/v1/finance", modules::finance::handlers::router())
+        .nest("/api/v1/webhooks", modules::finance::webhooks::router())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)

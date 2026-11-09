@@ -620,6 +620,31 @@ Responses:
 | Unknown provider | `404` |
 | Internal failure (gateway should retry) | `500` |
 
+Event shape (provider-agnostic):
+
+```json
+{
+  "id": "evt_123",
+  "type": "payment.succeeded",
+  "data": {
+    "topup_id": "uuid",
+    "amount": "50.00",
+    "currency": "USD",
+    "gateway_ref": "ch_123"
+  }
+}
+```
+
+Signature verification:
+
+| Provider | Header | Scheme |
+| --- | --- | --- |
+| `stripe` | `Stripe-Signature` | `t=<unix>,v1=<hex hmac-sha256(secret, "<t>.<raw body>")>`; 300 s tolerance |
+| `bkash`, `sslcommerz` | `X-Webhook-Secret` | constant-time equality with `PAYMENT_WEBHOOK_SECRET` (placeholder until the gateway integration lands) |
+
+Only `payment.succeeded` credits the wallet; any other type is recorded and
+acknowledged with `200`.
+
 Never returns wallet details.
 
 ---
@@ -663,6 +688,8 @@ Amounts are decimal strings, never floats.
 ```
 
 For `provider: "wallet"` this is invalid — use the internal credit path.
+`redirect_url` is `null` when `PAYMENT_REDIRECT_BASE` is unset (local
+development without a gateway).
 
 ### `GET /finance/invoices`
 

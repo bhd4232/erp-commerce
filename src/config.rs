@@ -26,6 +26,11 @@ pub struct Config {
     pub signed_url_ttl_seconds: u64,
     /// Signed upload (PUT) URL lifetime.
     pub signed_upload_ttl_seconds: u64,
+
+    /// Shared secret used to verify payment webhooks. Empty disables them.
+    pub payment_webhook_secret: String,
+    /// Optional base URL a client is redirected to after creating a top-up.
+    pub payment_redirect_base: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -66,6 +71,9 @@ impl Config {
             // Hard ceiling: the spec forbids URLs longer than 15 minutes.
             signed_url_ttl_seconds: parse_optional("SIGNED_URL_TTL_SECONDS", 900u64)?.min(900),
             signed_upload_ttl_seconds: parse_optional("SIGNED_UPLOAD_TTL_SECONDS", 300u64)?,
+
+            payment_webhook_secret: optional("PAYMENT_WEBHOOK_SECRET").unwrap_or_default(),
+            payment_redirect_base: optional("PAYMENT_REDIRECT_BASE"),
         })
     }
 }

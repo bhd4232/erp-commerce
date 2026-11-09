@@ -51,6 +51,7 @@ jobs:
       S3_SECRET_KEY: minioadmin
       SIGNED_URL_TTL_SECONDS: 900
       SIGNED_UPLOAD_TTL_SECONDS: 300
+      PAYMENT_WEBHOOK_SECRET: ci-webhook-secret
 
     steps:
       - uses: actions/checkout@v4
