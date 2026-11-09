@@ -47,6 +47,20 @@ idempotent replay, the vault, a signed download URL, and the `403` refund
 guard. Wallet-funded tests are skipped when there is no way to call
 `seed_wallet()` — there is no top-up API before P3.
 
+### Local test suite
+
+Every integration test gets its own database and runs all migrations, so
+parallel runs are the main memory spike. On a small machine:
+
+```bash
+./scripts/test.sh                  # starts a low-memory PostgreSQL if needed
+TEST_THREADS=2 ./scripts/test.sh   # allow more parallelism
+KEEP_PG=1 ./scripts/test.sh        # leave the server running afterwards
+```
+
+The script stops a server it started. If PostgreSQL is already running, it
+just runs the suite.
+
 Services:
 
 | Service | URL | Credentials |

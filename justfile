@@ -43,6 +43,10 @@ lint:
 test:
     cargo test --all-features
 
+# Local tests: starts a low-memory PostgreSQL if needed, serial by default.
+test-local:
+    ./scripts/test.sh
+
 # End-to-end smoke test against a running API.
 # Set DATABASE_URL to fund a fresh account through seed_wallet().
 smoke:
