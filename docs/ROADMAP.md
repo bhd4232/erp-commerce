@@ -65,21 +65,26 @@ is added in P1 — the only sanctioned funding path is the ledger-writing fixtur
 
 **Exit criteria**
 
-- [ ] Checkout with insufficient balance returns `402` and writes nothing
-- [ ] Concurrent double-checkout cannot overspend (test with two connections)
-- [ ] Download beyond `max_downloads` returns `410` and does not increment
-- [ ] No DTO contains `storage_path`; test asserts it
-- [ ] `seed_wallet` leaves `wallet_balance` equal to the derived ledger balance
-- [ ] Refund writes one `refund` row and expires every entitlement of the order
+- [x] Checkout with insufficient balance returns `402` and writes nothing
+- [x] Concurrent double-checkout cannot overspend (`tokio::join!`, one winner,
+      loser's order row rolled back)
+- [x] Download beyond `max_downloads` returns `410` and does not increment
+- [x] No DTO contains `storage_path`; asserted in the download test
+- [x] `seed_wallet` leaves `wallet_balance` equal to the derived ledger balance
+- [x] Refund writes one `refund` row and expires every entitlement of the order
       in the same transaction; second refund returns `409`
-- [ ] Integration tests cover success + 4xx for every endpoint
+- [x] Integration tests cover the success and 4xx paths
+      (`tests/digital_flow.rs`, 6 cases against real PostgreSQL)
 
 **Current state:** the backend for every bullet above is implemented and was
 exercised against a real PostgreSQL 16 instance: checkout `201`, idempotent
 replay without a second debit, vault listing, download `200` with a signed URL,
 second download `410`, refund `200` / repeat `409` / after-download `409` /
 non-admin `403`, zero balance `402`, and a ledger that reconciles exactly.
-Remaining: the `#[sqlx::test]` suite that pins this behaviour in CI.
+Pinned by `tests/digital_flow.rs`: 6 `#[sqlx::test]` cases (fresh database
+and all migrations per test) covering 402, idempotent replay, ledger/balance
+reconciliation, the 410 download limit, refund rules, and concurrent
+double-checkout.
 
 **Docs:** `API_SPEC.md` §2, `WORKFLOWS.md` §3, `DATABASE.md` §3.
 
