@@ -118,6 +118,32 @@ Do not deploy the dev `docker-compose.yml`: it starts Postgres, Redis and
 MinIO, and its `api` service lives behind a compose profile that Coolify does
 not enable.
 
+### Cloudflare R2
+
+1. Create a bucket (for example `erp-commerce-prod`). Leave **public access
+   disabled** — every read goes through a signed URL.
+2. **Manage R2 API Tokens** → create a token with *Object Read & Write*,
+   scoped to that bucket only. Copy the Access Key ID and Secret Access Key.
+3. The endpoint is `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`; set
+   `S3_REGION=auto` and keep the bucket name out of the endpoint.
+4. Browser uploads go straight to R2 via pre-signed PUT, so the bucket needs a
+   CORS policy:
+
+   ```json
+   [
+     {
+       "AllowedOrigins": ["https://app.example.com"],
+       "AllowedMethods": ["GET", "PUT"],
+       "AllowedHeaders": ["*"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3600
+     }
+   ]
+   ```
+
+5. CORS is not needed for server-to-server reads/writes, only for the browser
+   `PUT` that follows `POST /uploads/presign`.
+
 ## Documentation
 
 | Document | Contents |
