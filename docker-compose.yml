@@ -49,7 +49,7 @@ services:
       retries: 12
 
   minio:
-    image: minio/minio:latest
+    image: quay.io/minio/minio:latest
     container_name: erp_s3_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
@@ -68,7 +68,7 @@ services:
   # Creates the private bucket and verifies it is not public.
   # Retries on its own because minio has no reliable health signal on first boot.
   minio-init:
-    image: minio/mc:latest
+    image: quay.io/minio/mc:latest
     container_name: erp_s3_init
     depends_on:
       minio:

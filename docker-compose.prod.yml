@@ -1,0 +1,47 @@
+# Production compose for Coolify or any Docker host.
+#
+# Only the API runs here. PostgreSQL, Redis and object storage are external
+# managed services — see .env.production.example for the variables to set in
+# the Coolify UI (or in a .env file next to this compose file).
+#
+# Coolify: set "Docker Compose Location" to /docker-compose.prod.yml.
+#
+# First deploy: leave RUN_MIGRATIONS=1 (single replica) so the schema is
+# created. When you scale past one replica, set RUN_MIGRATIONS=0 and run
+# `sqlx migrate run` as a separate one-shot job under an advisory lock.
+
+name: erp-commerce
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS:-10}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-3600}
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:?S3_BUCKET is required}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+      SIGNED_URL_TTL_SECONDS: ${SIGNED_URL_TTL_SECONDS:-900}
+      SIGNED_UPLOAD_TTL_SECONDS: ${SIGNED_UPLOAD_TTL_SECONDS:-300}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-}
+      PAYMENT_REDIRECT_BASE: ${PAYMENT_REDIRECT_BASE:-}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
+      RUST_LOG: ${RUST_LOG:-info,tower_http=warn}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 20s

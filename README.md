@@ -98,6 +98,26 @@ Services:
 
 ---
 
+## Deploy
+
+The development compose file is for local infrastructure only. Deploy with
+`docker-compose.prod.yml`, which runs just the API and expects external
+PostgreSQL, Redis and S3-compatible storage.
+
+### Coolify
+
+1. Create a **Docker Compose** resource pointing at this repository.
+2. Set **Docker Compose Location** to `/docker-compose.prod.yml`.
+3. Add the variables from `.env.production.example` in the Coolify UI
+   (Environment Variables). Required ones fail fast with a clear message.
+4. Keep `RUN_MIGRATIONS=1` for the first deploy with a single replica, then set
+   it to `0` and run migrations as a one-shot job when scaling.
+5. Expose container port `8080` and point the domain at it.
+
+Do not deploy the dev `docker-compose.yml`: it starts Postgres, Redis and
+MinIO, and its `api` service lives behind a compose profile that Coolify does
+not enable.
+
 ## Documentation
 
 | Document | Contents |
