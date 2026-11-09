@@ -2,7 +2,7 @@
 name = "erp-commerce"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.99"
 description = "ERP + Digital Commerce engine: digital product delivery and agency service fulfilment"
 license = "MIT"
 

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- build -----------------------------------------------------------------
-FROM rust:1.82-slim-bookworm AS builder
+FROM rust:1.99-slim-bookworm AS builder
 
 # aws-lc-sys (pulled in by rustls) needs a C toolchain and cmake.
 RUN apt-get update && apt-get install -y --no-install-recommends \
