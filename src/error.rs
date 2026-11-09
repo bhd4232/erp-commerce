@@ -41,6 +41,12 @@ pub enum AppError {
     #[error("download limit exhausted")]
     DownloadsExhausted,
 
+    #[error("payload too large")]
+    PayloadTooLarge,
+
+    #[error("unsupported media type")]
+    UnsupportedMediaType,
+
     #[error("rate limited")]
     RateLimited,
 
@@ -70,6 +76,10 @@ impl AppError {
             AppError::InsufficientFunds => (StatusCode::PAYMENT_REQUIRED, "insufficient_funds"),
             AppError::EntitlementExpired => (StatusCode::GONE, "entitlement_expired"),
             AppError::DownloadsExhausted => (StatusCode::GONE, "downloads_exhausted"),
+            AppError::PayloadTooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large"),
+            AppError::UnsupportedMediaType => {
+                (StatusCode::UNSUPPORTED_MEDIA_TYPE, "unsupported_media_type")
+            }
             AppError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
             AppError::NotImplemented(_) => (StatusCode::NOT_IMPLEMENTED, "not_implemented"),
             AppError::Db(_) | AppError::Internal(_) => {

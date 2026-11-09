@@ -3,3 +3,4 @@
 pub mod auth;
 pub mod digital;
 pub mod services;
+pub mod uploads;
