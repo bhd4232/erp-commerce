@@ -7,8 +7,9 @@ on:
     branches: [main]
 
 env:
+  # Do not set RUSTFLAGS here: the sqlx-cli install would inherit it and fail
+  # on third-party warnings. Clippy turns warnings into errors explicitly.
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
 
 jobs:
   backend:
@@ -77,28 +78,6 @@ jobs:
 
       - name: Test
         run: cargo test --all-features
-
-  frontend:
-    name: Frontend (typecheck, lint, build)
-    runs-on: ubuntu-latest
-    # The frontend does not exist yet; this job turns on once frontend/ lands.
-    if: ${{ hashFiles('frontend/package.json') != '' }}
-    defaults:
-      run:
-        working-directory: frontend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
 
   docker:
     name: Docker image
