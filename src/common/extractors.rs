@@ -27,6 +27,14 @@ pub enum Role {
 }
 
 impl Role {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Role::Admin => "admin",
+            Role::Staff => "staff",
+            Role::Client => "client",
+        }
+    }
+
     fn parse(raw: &str) -> Option<Self> {
         match raw {
             "admin" => Some(Role::Admin),
