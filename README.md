@@ -96,9 +96,10 @@ Services:
 | Area | State |
 | --- | --- |
 | Specifications | complete |
-| DB migrations (`0001`–`0005`) | complete |
+| DB migrations (`0001`–`0006`) | complete |
 | Auth (register / login / me) | implemented |
-| Digital catalogue, vault, download | routes + types, service stubs (`501`) |
+| Digital catalogue, vault, download | implemented |
+| Wallet checkout, idempotency, refund | implemented |
 | Service order pipeline | routes + types, service stubs (`501`) |
 | Billing, AI generator, notifications | specified, not implemented |
 | Frontend SPA | not started |

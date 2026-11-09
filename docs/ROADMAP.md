@@ -27,7 +27,8 @@ Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 - [x] `docker compose up -d` yields Postgres, Redis, MinIO, private bucket
 - [x] `sqlx migrate run` applies 0001–0005 from an empty database
 - [x] CI runs fmt, clippy, migrations, tests
-- [ ] First real `cargo test` run on a machine with a toolchain
+- [x] First real `cargo test` run (Rust 1.99.1): 5/5 unit tests, clippy
+      `-D warnings` and `cargo fmt --check` all clean
 
 > **Toolchain gate:** this workspace has no Rust toolchain, no container runtime,
 > and `curl` aborts under the current emulation. Code written here is unverified.
@@ -72,6 +73,13 @@ is added in P1 — the only sanctioned funding path is the ledger-writing fixtur
 - [ ] Refund writes one `refund` row and expires every entitlement of the order
       in the same transaction; second refund returns `409`
 - [ ] Integration tests cover success + 4xx for every endpoint
+
+**Current state:** the backend for every bullet above is implemented and was
+exercised against a real PostgreSQL 16 instance: checkout `201`, idempotent
+replay without a second debit, vault listing, download `200` with a signed URL,
+second download `410`, refund `200` / repeat `409` / after-download `409` /
+non-admin `403`, zero balance `402`, and a ledger that reconciles exactly.
+Remaining: the `#[sqlx::test]` suite that pins this behaviour in CI.
 
 **Docs:** `API_SPEC.md` §2, `WORKFLOWS.md` §3, `DATABASE.md` §3.
 

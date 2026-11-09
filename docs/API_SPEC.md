@@ -66,6 +66,17 @@ List resource:
 
 All list endpoints accept `?page=1&per_page=20` (`per_page` max 100).
 
+### Money and identifiers
+
+- Monetary amounts are JSON **strings** with two decimals (`"19.00"`), never
+  JSON numbers. Floats lose cents at scale, and the client formats for display.
+- `price`, `total_amount`, `wallet_balance`, `refunded_amount`, `subtotal`,
+  `tax_amount` and `total` follow this rule. Examples below that show `19.00`
+  as a number are illustrative only.
+- Order and invoice numbers are Latin identifiers and are never translated.
+- Storage keys (`protected-products/...`, `user-uploads/...`) never appear in
+  any response; only pre-signed URLs do.
+
 ---
 
 ## 1. Authentication
