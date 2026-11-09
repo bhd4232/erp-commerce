@@ -137,6 +137,14 @@ settings, Tauri. Those stay in P6/P7.
 | `POST /services/orders/{id}/approve` | moves to `completed`, unlocks `final/` |
 | `allowed_actions` in every order DTO | single source of UI truth |
 
+**Current state:** `POST /uploads/presign`, `POST /services/orders`,
+`GET /services/orders` (role-scoped, `status` + `assignee=me` filters) and
+`GET /services/orders/{id}` (`allowed_actions`, brief, previews) are
+implemented and covered by `tests/service_flow.rs`. Order creation debits the
+wallet and writes the ledger row in one transaction. Remaining in this phase:
+brief submission, assignment, deliverable upload + watermark enqueue,
+revision, approve, cancel/refund, and the final download gate.
+
 **Exit criteria**
 
 - [ ] Every legal transition has a test; every illegal one returns `409`
