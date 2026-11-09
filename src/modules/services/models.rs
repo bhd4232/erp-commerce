@@ -34,6 +34,20 @@ impl ServiceStatus {
         }
     }
 
+    pub fn parse(raw: &str) -> Option<Self> {
+        Some(match raw {
+            "pending_brief" => ServiceStatus::PendingBrief,
+            "in_queue" => ServiceStatus::InQueue,
+            "in_progress" => ServiceStatus::InProgress,
+            "under_review" => ServiceStatus::UnderReview,
+            "revision_requested" => ServiceStatus::RevisionRequested,
+            "approved" => ServiceStatus::Approved,
+            "completed" => ServiceStatus::Completed,
+            "cancelled" => ServiceStatus::Cancelled,
+            _ => return None,
+        })
+    }
+
     pub fn is_terminal(self) -> bool {
         matches!(self, ServiceStatus::Completed | ServiceStatus::Cancelled)
     }

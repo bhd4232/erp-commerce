@@ -9,8 +9,10 @@ use super::dtos::{
     DeliverableSubmitted, DeliveryDownload, RequestRevisionRequest, RevisionRequested,
     ServiceOrderDetail, ServiceOrderSummary, SubmitBriefRequest, SubmitDeliverableRequest,
 };
+use super::models::ServiceStatus;
 use super::service;
 use crate::common::extractors::AuthUser;
+use crate::common::response::Envelope;
 use crate::error::AppError;
 use crate::modules::digital::service::Page;
 use crate::state::AppState;
@@ -32,36 +34,49 @@ pub fn router() -> Router<AppState> {
 }
 
 #[derive(Debug, Deserialize)]
-struct Pagination {
+struct ListQuery {
     page: Option<i64>,
     per_page: Option<i64>,
+    status: Option<String>,
+    /// `me` limits the board to the caller's assigned orders.
+    assignee: Option<String>,
 }
 
 async fn create_order(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(payload): Json<CreateServiceOrderRequest>,
-) -> Result<(axum::http::StatusCode, Json<ServiceOrderSummary>), AppError> {
+) -> Result<(axum::http::StatusCode, Json<Envelope<ServiceOrderSummary>>), AppError> {
     let order = service::create_order(&state, auth.id, payload).await?;
-    Ok((axum::http::StatusCode::CREATED, Json(order)))
+    Ok((axum::http::StatusCode::CREATED, Json(Envelope::new(order))))
 }
 
 async fn list_orders(
     State(state): State<AppState>,
     auth: AuthUser,
-    Query(pagination): Query<Pagination>,
-) -> Result<Json<Vec<ServiceOrderSummary>>, AppError> {
-    let page = Page::new(pagination.page, pagination.per_page);
-    let orders = service::list_orders(&state, &auth, &page).await?;
-    Ok(Json(orders))
+    Query(query): Query<ListQuery>,
+) -> Result<Json<Envelope<Vec<ServiceOrderSummary>>>, AppError> {
+    let status = match query.status.as_deref() {
+        None => None,
+        Some(raw) => Some(
+            ServiceStatus::parse(raw)
+                .ok_or_else(|| AppError::Validation(format!("unknown status '{raw}'")))?,
+        ),
+    };
+    let assignee_me = query.assignee.as_deref() == Some("me");
+
+    let page = Page::new(query.page, query.per_page);
+    let (orders, total) = service::list_orders(&state, &auth, &page, status, assignee_me).await?;
+    Ok(Json(Envelope::with_meta(orders, page.meta(total))))
 }
 
 async fn get_order(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
-) -> Result<Json<ServiceOrderDetail>, AppError> {
-    Ok(Json(service::get_order(&state, &auth, order_id).await?))
+) -> Result<Json<Envelope<ServiceOrderDetail>>, AppError> {
+    let order = service::get_order(&state, &auth, order_id).await?;
+    Ok(Json(Envelope::new(order)))
 }
 
 async fn submit_brief(

@@ -103,6 +103,8 @@ pub struct ServiceOrderSummary {
     pub assigned_staff_id: Option<Uuid>,
     pub due_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    /// True while the order still waits for its intake brief.
+    pub brief_required: bool,
 }
 
 #[derive(Debug, Serialize)]
