@@ -497,3 +497,14 @@ concurrent checkouts must never compute the same next number. The prefix
 identifies the domain (`DIG` for digital, `SVC` for service orders). `to_char`
 is used instead of `lpad`, which silently truncates once the counter passes
 9999.
+
+### 9.8 Deliverable source key
+
+```sql
+ALTER TABLE order_deliverables ADD COLUMN source_preview_path TEXT;
+```
+
+`source_preview_path` is the raw upload (`.../raw/`), read only by the
+watermark worker. `watermarked_preview_path` stays NULL until the worker has
+written the safe copy, so `GET /services/orders/{id}` can never sign the raw
+file. `final_asset_path` is only signed after `completed` + `is_approved`.

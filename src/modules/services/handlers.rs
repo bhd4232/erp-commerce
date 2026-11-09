@@ -1,4 +1,5 @@
 use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::routing::{get, patch, post};
 use axum::{Json, Router};
 use serde::Deserialize;
@@ -10,11 +11,11 @@ use super::dtos::{
     ServiceOrderDetail, ServiceOrderSummary, SubmitBriefRequest, SubmitDeliverableRequest,
 };
 use super::models::ServiceStatus;
-use super::service;
+use super::{service, transitions};
 use crate::common::extractors::AuthUser;
+use crate::common::pagination::Page;
 use crate::common::response::Envelope;
 use crate::error::AppError;
-use crate::modules::digital::service::Page;
 use crate::state::AppState;
 
 pub fn router() -> Router<AppState> {
@@ -46,9 +47,9 @@ async fn create_order(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(payload): Json<CreateServiceOrderRequest>,
-) -> Result<(axum::http::StatusCode, Json<Envelope<ServiceOrderSummary>>), AppError> {
+) -> Result<(StatusCode, Json<Envelope<ServiceOrderSummary>>), AppError> {
     let order = service::create_order(&state, auth.id, payload).await?;
-    Ok((axum::http::StatusCode::CREATED, Json(Envelope::new(order))))
+    Ok((StatusCode::CREATED, Json(Envelope::new(order))))
 }
 
 async fn list_orders(
@@ -84,10 +85,9 @@ async fn submit_brief(
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
     Json(payload): Json<SubmitBriefRequest>,
-) -> Result<Json<BriefSubmitted>, AppError> {
-    Ok(Json(
-        service::submit_brief(&state, &auth, order_id, payload).await?,
-    ))
+) -> Result<Json<Envelope<BriefSubmitted>>, AppError> {
+    let result = transitions::submit_brief(&state, &auth, order_id, payload).await?;
+    Ok(Json(Envelope::new(result)))
 }
 
 async fn assign(
@@ -95,10 +95,9 @@ async fn assign(
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
     Json(payload): Json<AssignRequest>,
-) -> Result<Json<ServiceOrderSummary>, AppError> {
-    Ok(Json(
-        service::assign(&state, &auth, order_id, payload).await?,
-    ))
+) -> Result<Json<Envelope<ServiceOrderSummary>>, AppError> {
+    let order = transitions::assign(&state, &auth, order_id, payload).await?;
+    Ok(Json(Envelope::new(order)))
 }
 
 async fn submit_deliverable(
@@ -106,9 +105,9 @@ async fn submit_deliverable(
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
     Json(payload): Json<SubmitDeliverableRequest>,
-) -> Result<(axum::http::StatusCode, Json<DeliverableSubmitted>), AppError> {
-    let result = service::submit_deliverable(&state, &auth, order_id, payload).await?;
-    Ok((axum::http::StatusCode::ACCEPTED, Json(result)))
+) -> Result<(StatusCode, Json<Envelope<DeliverableSubmitted>>), AppError> {
+    let result = transitions::submit_deliverable(&state, &auth, order_id, payload).await?;
+    Ok((StatusCode::ACCEPTED, Json(Envelope::new(result))))
 }
 
 async fn request_revision(
@@ -116,18 +115,18 @@ async fn request_revision(
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
     Json(payload): Json<RequestRevisionRequest>,
-) -> Result<Json<RevisionRequested>, AppError> {
-    Ok(Json(
-        service::request_revision(&state, &auth, order_id, payload).await?,
-    ))
+) -> Result<Json<Envelope<RevisionRequested>>, AppError> {
+    let result = transitions::request_revision(&state, &auth, order_id, payload).await?;
+    Ok(Json(Envelope::new(result)))
 }
 
 async fn approve(
     State(state): State<AppState>,
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
-) -> Result<Json<Approved>, AppError> {
-    Ok(Json(service::approve(&state, &auth, order_id).await?))
+) -> Result<Json<Envelope<Approved>>, AppError> {
+    let result = transitions::approve(&state, &auth, order_id).await?;
+    Ok(Json(Envelope::new(result)))
 }
 
 async fn cancel(
@@ -135,18 +134,16 @@ async fn cancel(
     auth: AuthUser,
     Path(order_id): Path<Uuid>,
     Json(payload): Json<CancelRequest>,
-) -> Result<Json<Cancelled>, AppError> {
-    Ok(Json(
-        service::cancel(&state, &auth, order_id, payload).await?,
-    ))
+) -> Result<Json<Envelope<Cancelled>>, AppError> {
+    let result = transitions::cancel(&state, &auth, order_id, payload).await?;
+    Ok(Json(Envelope::new(result)))
 }
 
 async fn deliverable_download(
     State(state): State<AppState>,
     auth: AuthUser,
     Path((order_id, deliverable_id)): Path<(Uuid, Uuid)>,
-) -> Result<Json<DeliveryDownload>, AppError> {
-    Ok(Json(
-        service::deliverable_download(&state, &auth, order_id, deliverable_id).await?,
-    ))
+) -> Result<Json<Envelope<DeliveryDownload>>, AppError> {
+    let result = service::deliverable_download(&state, &auth, order_id, deliverable_id).await?;
+    Ok(Json(Envelope::new(result)))
 }

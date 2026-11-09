@@ -32,6 +32,9 @@ pub enum AppError {
     #[error("revision limit reached")]
     RevisionLimitReached,
 
+    #[error("brief is missing required fields")]
+    BriefIncomplete(Vec<String>),
+
     #[error("insufficient funds")]
     InsufficientFunds,
 
@@ -73,6 +76,7 @@ impl AppError {
             AppError::EmailTaken => (StatusCode::CONFLICT, "email_taken"),
             AppError::InvalidState(_) => (StatusCode::CONFLICT, "invalid_state_transition"),
             AppError::RevisionLimitReached => (StatusCode::CONFLICT, "revision_limit_reached"),
+            AppError::BriefIncomplete(_) => (StatusCode::UNPROCESSABLE_ENTITY, "brief_incomplete"),
             AppError::InsufficientFunds => (StatusCode::PAYMENT_REQUIRED, "insufficient_funds"),
             AppError::EntitlementExpired => (StatusCode::GONE, "entitlement_expired"),
             AppError::DownloadsExhausted => (StatusCode::GONE, "downloads_exhausted"),
@@ -102,11 +106,16 @@ impl IntoResponse for AppError {
             other => other.to_string(),
         };
 
+        let details = match &self {
+            AppError::BriefIncomplete(missing) => json!({ "missing": missing }),
+            _ => json!(null),
+        };
+
         let body = Json(json!({
             "error": {
                 "code": code,
                 "message": message,
-                "details": null
+                "details": details
             }
         }));
 

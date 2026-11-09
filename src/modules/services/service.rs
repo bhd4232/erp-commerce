@@ -11,10 +11,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use super::dtos::{
-    Approved, AssignRequest, BriefSubmitted, CancelRequest, Cancelled, CreateServiceOrderRequest,
-    DeliverableSubmitted, DeliverableView, DeliveryDownload, RequestRevisionRequest,
-    RevisionRequested, ServiceOrderDetail, ServiceOrderSummary, SubmitBriefRequest,
-    SubmitDeliverableRequest,
+    CreateServiceOrderRequest, DeliverableView, DeliveryDownload, ServiceOrderDetail,
+    ServiceOrderSummary,
 };
 use super::models::ServiceStatus;
 use crate::common::extractors::{AuthUser, Role};
@@ -41,7 +39,7 @@ pub fn allowed_actions(status: ServiceStatus, role: Role, is_owner: bool) -> Vec
 }
 
 #[derive(sqlx::FromRow)]
-struct OrderSummaryRow {
+pub(crate) struct OrderSummaryRow {
     id: Uuid,
     order_number: String,
     status: ServiceStatus,
@@ -144,73 +142,6 @@ pub async fn create_order(
         created_at,
         brief_required: true,
     })
-}
-
-pub async fn submit_brief(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-    _req: SubmitBriefRequest,
-) -> Result<BriefSubmitted, AppError> {
-    // Guards: owner, status == pending_brief, payload matches brief_template.
-    // Then: INSERT order_briefs, status -> in_queue.
-    Err(AppError::NotImplemented("services::submit_brief"))
-}
-
-pub async fn assign(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-    _req: AssignRequest,
-) -> Result<ServiceOrderSummary, AppError> {
-    // Allowed from in_queue (-> in_progress) or in_progress (reassignment).
-    // Assignee must have role = 'staff'; due_at must be in the future.
-    Err(AppError::NotImplemented("services::assign"))
-}
-
-pub async fn submit_deliverable(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-    _req: SubmitDeliverableRequest,
-) -> Result<DeliverableSubmitted, AppError> {
-    // Allowed from in_progress and revision_requested.
-    // Insert order_deliverables with version = max(version) + 1, keep the order
-    // in in_progress, enqueue the watermark worker. The order moves to
-    // under_review only when the worker has written the preview.
-    Err(AppError::NotImplemented("services::submit_deliverable"))
-}
-
-pub async fn request_revision(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-    _req: RequestRevisionRequest,
-) -> Result<RevisionRequested, AppError> {
-    // SELECT ... FOR UPDATE; require status == under_review and
-    // revisions_used < revision_limit; increment; INSERT order_revisions.
-    Err(AppError::NotImplemented("services::request_revision"))
-}
-
-pub async fn approve(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-) -> Result<Approved, AppError> {
-    // Require status == under_review; set is_approved/approved_at on the latest
-    // deliverable; status -> completed.
-    Err(AppError::NotImplemented("services::approve"))
-}
-
-pub async fn cancel(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-    _req: CancelRequest,
-) -> Result<Cancelled, AppError> {
-    // Client may cancel only pending_brief / in_queue; admin any non-terminal.
-    // Refund through the wallet ledger in the same transaction.
-    Err(AppError::NotImplemented("services::cancel"))
 }
 
 pub async fn list_orders(
@@ -369,14 +300,50 @@ pub async fn get_order(
 }
 
 pub async fn deliverable_download(
-    _state: &AppState,
-    _actor: &AuthUser,
-    _order_id: Uuid,
-    _deliverable_id: Uuid,
+    state: &AppState,
+    actor: &AuthUser,
+    order_id: Uuid,
+    deliverable_id: Uuid,
 ) -> Result<DeliveryDownload, AppError> {
-    // Sign the final asset ONLY when status == completed and is_approved.
-    // While under_review / revision_requested this must be 403, not a preview.
-    Err(AppError::NotImplemented("services::deliverable_download"))
+    let order: Option<(Uuid, ServiceStatus)> =
+        sqlx::query_as("SELECT client_id, status FROM service_orders WHERE id = $1")
+            .bind(order_id)
+            .fetch_optional(&state.db)
+            .await?;
+    let (client_id, status) = order.ok_or(AppError::NotFound)?;
+
+    if actor.role != Role::Admin && actor.id != client_id {
+        return Err(AppError::NotFound);
+    }
+    // The unwatermarked file is never signed before approval.
+    if status != ServiceStatus::Completed {
+        return Err(AppError::Forbidden);
+    }
+
+    let file: Option<(String, bool)> = sqlx::query_as(
+        "SELECT final_asset_path, is_approved
+           FROM order_deliverables WHERE id = $1 AND order_id = $2",
+    )
+    .bind(deliverable_id)
+    .bind(order_id)
+    .fetch_optional(&state.db)
+    .await?;
+    let (path, approved) = file.ok_or(AppError::NotFound)?;
+    if !approved {
+        return Err(AppError::Forbidden);
+    }
+
+    let filename = filename_of(&path).to_string();
+    let download_url = state
+        .storage
+        .presign_get(&path, &filename, mime_for(&path))
+        .await?;
+
+    Ok(DeliveryDownload {
+        download_url,
+        expires_at: Utc::now() + chrono::Duration::seconds(state.cfg.signed_url_ttl_seconds as i64),
+        filename,
+    })
 }
 
 fn filename_of(key: &str) -> &str {
