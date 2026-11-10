@@ -37,8 +37,12 @@ services:
       PAYMENT_REDIRECT_BASE: ${PAYMENT_REDIRECT_BASE:-}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-1}
       RUST_LOG: ${RUST_LOG:-info,tower_http=warn}
+    # The API is the only service; expose 8080 so Coolify detects it instead
+    # of reusing a port cached from an older compose file.
     ports:
       - "8080:8080"
+    expose:
+      - "8080"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/healthz"]
       interval: 15s
