@@ -7,9 +7,10 @@
 #   S3_ACCESS_KEY=minioadmin          S3_SECRET_KEY=minioadmin
 #
 # Usage:
-#   docker compose up -d              # postgres + redis + minio (+ bucket init)
-#   docker compose --profile app up   # also build and run the API
-#   docker compose down -v            # wipe volumes
+#   docker compose -f docker-compose.dev.yml up -d      # postgres + redis + minio
+#   docker compose -f docker-compose.dev.yml down -v    # wipe volumes
+#
+# This file is local only. Production uses docker-compose.yml (API only).
 
 name: erp-commerce
 

@@ -4,7 +4,7 @@
 # managed services — see .env.production.example for the variables to set in
 # the Coolify UI (or in a .env file next to this compose file).
 #
-# Coolify: set "Docker Compose Location" to /docker-compose.prod.yml.
+# Coolify: leave "Docker Compose Location" empty; it defaults to this file.
 #
 # First deploy: leave RUN_MIGRATIONS=1 (single replica) so the schema is
 # created. When you scale past one replica, set RUN_MIGRATIONS=0 and run
