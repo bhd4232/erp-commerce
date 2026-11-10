@@ -114,7 +114,7 @@ just test          # cargo test
 just fe-dev        # frontend dev server
 ```
 
-If `just` is unavailable: `docker compose up -d`, `sqlx migrate run`,
+If `just` is unavailable: `docker compose -f docker-compose.dev.yml up -d`, `sqlx migrate run`,
 `cargo run`, `cargo fmt`, `cargo clippy -- -D warnings`.
 
 ---

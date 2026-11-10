@@ -10,18 +10,18 @@ default:
 # --- infrastructure ---------------------------------------------------------
 
 up:
-    docker compose up -d
+    docker compose -f docker-compose.dev.yml up -d
     @echo "postgres :5432  redis :6379  minio :9000 (console :9001)"
 
 down:
-    docker compose down
+    docker compose -f docker-compose.dev.yml down
 
 reset:
-    docker compose down -v
-    docker compose up -d
+    docker compose -f docker-compose.dev.yml down -v
+    docker compose -f docker-compose.dev.yml up -d
 
 logs:
-    docker compose logs -f --tail=100
+    docker compose -f docker-compose.dev.yml logs -f --tail=100
 
 # --- backend ----------------------------------------------------------------
 

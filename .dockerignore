@@ -9,6 +9,7 @@ frontend/
 *.log
 Dockerfile
 docker-compose.yml
+docker-compose.dev.yml
 README.md
 .gitignore
 .cursorrules

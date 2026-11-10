@@ -1,0 +1,125 @@
+# Local development infrastructure.
+#
+# Credentials here match .env exactly. If you change one, change both.
+#   DATABASE_URL=postgres://postgres:postgres@localhost:5432/erp_commerce
+#   REDIS_URL=redis://localhost:6379/0
+#   S3_ENDPOINT=http://localhost:9000  S3_BUCKET=erp-commerce-dev
+#   S3_ACCESS_KEY=minioadmin          S3_SECRET_KEY=minioadmin
+#
+# Usage:
+#   docker compose up -d              # postgres + redis + minio (+ bucket init)
+#   docker compose --profile app up   # also build and run the API
+#   docker compose down -v            # wipe volumes
+
+name: erp-commerce
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: erp_commerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d erp_commerce"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: erp_redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: erp_s3_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    # No container-level healthcheck: the minio image ships neither curl nor a
+    # guaranteed shell. Readiness is proven by minio-init below, which retries
+    # until the server answers.
+
+  # Creates the private bucket and verifies it is not public.
+  # Retries on its own because minio has no reliable health signal on first boot.
+  minio-init:
+    image: quay.io/minio/mc:latest
+    container_name: erp_s3_init
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 minioadmin minioadmin >/dev/null 2>&1; do
+        echo 'waiting for minio...'; sleep 2;
+      done;
+      mc mb --ignore-existing local/erp-commerce-dev;
+      mc anonymous set none local/erp-commerce-dev;
+      echo 'bucket erp-commerce-dev ready (private)';
+      "
+    restart: "no"
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: erp_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8080
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/erp_commerce
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: dev-only-secret-please-replace-with-32-plus-chars
+      JWT_TTL_SECONDS: 3600
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: auto
+      S3_BUCKET: erp-commerce-dev
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      SIGNED_URL_TTL_SECONDS: 900
+      SIGNED_UPLOAD_TTL_SECONDS: 300
+      PAYMENT_WEBHOOK_SECRET: dev-webhook-secret-change-me
+      PAYMENT_REDIRECT_BASE: http://localhost:8080/pay
+      RUN_MIGRATIONS: 1
+      RUST_LOG: info,tower_http=debug
+    ports:
+      - "8080:8080"
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:

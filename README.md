@@ -20,7 +20,7 @@ Everything is specified before it is implemented. Start with
 ```bash
 cp .env.example .env      # local values are already filled in for docker compose
 
-docker compose up -d      # postgres + redis + minio (+ private bucket)
+just up                   # postgres + redis + minio (dev stack)
 just migrate              # or: sqlx migrate run
 just dev                  # API on http://localhost:8080
 ```
@@ -100,23 +100,22 @@ Services:
 
 ## Deploy
 
-The development compose file is for local infrastructure only. Deploy with
-`docker-compose.prod.yml`, which runs just the API and expects external
-PostgreSQL, Redis and S3-compatible storage.
+`docker-compose.yml` is the production stack: it runs only the API and expects
+external PostgreSQL, Redis and S3-compatible storage. Local infrastructure
+lives in `docker-compose.dev.yml` (Postgres, Redis, MinIO).
 
 ### Coolify
 
 1. Create a **Docker Compose** resource pointing at this repository.
-2. Set **Docker Compose Location** to `/docker-compose.prod.yml`.
+2. Leave **Docker Compose Location** empty (defaults to `/docker-compose.yml`).
 3. Add the variables from `.env.production.example` in the Coolify UI
    (Environment Variables). Required ones fail fast with a clear message.
 4. Keep `RUN_MIGRATIONS=1` for the first deploy with a single replica, then set
    it to `0` and run migrations as a one-shot job when scaling.
 5. Expose container port `8080` and point the domain at it.
 
-Do not deploy the dev `docker-compose.yml`: it starts Postgres, Redis and
-MinIO, and its `api` service lives behind a compose profile that Coolify does
-not enable.
+Do not point Coolify at `docker-compose.dev.yml`: it starts Postgres, Redis and
+MinIO and has no API service.
 
 ### Cloudflare R2
 
