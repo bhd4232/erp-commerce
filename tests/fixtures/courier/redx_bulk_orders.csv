@@ -1,0 +1,6 @@
+customer_name,customer_phone,delivery_area,delivery_area_id,customer_address,merchant_invoice_id,cash_collection_amount,parcel_weight,value,instruction,is_closed_box,pickup_store_id
+Rahim Ahmed,01711223344,Mirpur DOHS,12,"House 45, Road 7, Avenue 3, Mirpur DOHS, Dhaka",INV-2026-8801,1500,750,1500,"Call recipient before dispatch",true,1
+Nusrat Jahan,01812345678,Banani,14,"House 7, Road 2, Banani, Dhaka",INV-2026-8802,950,500,950,,false,1
+Imran Hossain,01811223444,Uttara,18,"House 12, Road 4, Sector 10, Uttara, Dhaka",INV-2026-8803,1800,1000,1800,"Deliver after 3 PM",true,1
+Sadia Rahman,01511000444,Panchlaish,22,"House 9, Road 1, Panchlaish, Chattogram",INV-2026-8804,1200,500,1200,,false,1
+Farhana Akter,01911000222,Gulshan,16,"Flat 4B, House 5, Gulshan 2, Dhaka",INV-2026-8805,2200,900,2200,"Fragile items inside",true,1

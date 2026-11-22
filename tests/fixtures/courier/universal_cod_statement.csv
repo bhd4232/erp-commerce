@@ -1,0 +1,11 @@
+source,statement_id,consignment_id,merchant_invoice_id,tracking_code,recipient_name,recipient_phone,delivery_area,status,cod_amount,cod_collected,delivery_charge,cod_fee,adjustment,net_amount,return_flag,delivered_at,payout_date,mismatch_type,mismatch_amount,notes
+steadfast,ST-PAY-1001,ST-9845210,ORD-10231,ST-9845210,Jahid Hasan,01712345678,Dhanmondi,delivered,1060.00,1060.00,60.00,10.60,0.00,989.40,false,2026-11-02,2026-11-05,,0.00,clean
+steadfast,ST-PAY-1001,ST-9845211,ORD-10232,ST-9845211,Nusrat Jahan,01812345678,Mirpur,delivered,1500.00,0.00,70.00,0.00,0.00,0.00,false,2026-11-03,2026-11-05,missing_cod,1500.00,"delivered but COD not remitted"
+pathao,PTH-PAY-2001,PTH-7712001,ORD-10233,PTH-7712001,Arif Chowdhury,01711000111,Uttara,delivered,1200.00,1100.00,80.00,12.00,0.00,1008.00,false,2026-11-04,2026-11-06,underpaid,100.00,"customer paid less than expected"
+pathao,PTH-PAY-2001,PTH-7712002,ORD-10234,PTH-7712002,Farhana Akter,01911000222,Gulshan,delivered,2200.00,2200.00,60.00,22.00,0.00,2118.00,false,2026-11-04,2026-11-06,overcharged_fee,20.00,"delivery fee 60 vs agreed 40"
+redx,RDX-PAY-3001,RDX-21A427TU4BN3R,ORD-10235,21A427TU4BN3R,Rahim Ahmed,01711223344,Mirpur DOHS,returned,1500.00,0.00,70.00,0.00,-30.00,-100.00,true,,2026-11-07,return_fee,30.00,"return charge not explained"
+redx,RDX-PAY-3001,RDX-21A427TU4BN3R,ORD-10235,21A427TU4BN3R,Rahim Ahmed,01711223344,Mirpur DOHS,returned,1500.00,0.00,70.00,0.00,-30.00,-100.00,true,,2026-11-07,duplicate_line,0.00,"duplicate statement line"
+steadfast,ST-PAY-1002,ST-9845212,ORD-10236,ST-9845212,Tanvir Islam,01612345678,Chattogram,delivered,0.00,0.00,100.00,0.00,0.00,-100.00,false,2026-11-05,2026-11-08,prepaid_fee,100.00,"prepaid order delivery fee"
+pathao,PTH-PAY-2002,PTH-7712003,ORD-10237,PTH-7712003,Sadia Rahman,01511000333,Banani,in_transit,1800.00,0.00,0.00,0.00,0.00,0.00,false,,,pending,0.00,"not delivered yet"
+redx,RDX-PAY-3002,RDX-21A427TU4BN4R,ORD-10238,21A427TU4BN4R,Imran Hossain,01811223444,Uttara,delivered,950.00,950.00,60.00,9.50,0.00,880.50,false,2026-11-06,2026-11-09,,0.00,clean
+pathao,PTH-PAY-2003,PTH-7712004,ORD-10239,PTH-7712004,Mehedi Hasan,01711555666,Dhanmondi,cancelled,0.00,0.00,0.00,0.00,0.00,0.00,false,,,cancelled,0.00,"cancelled before pickup"

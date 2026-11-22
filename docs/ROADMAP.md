@@ -6,6 +6,12 @@ before the previous one's exit criteria hold, except where marked parallel.
 
 Status legend: `[x]` done · `[ ]` not started · `[~]` specified/stubbed only.
 
+> **2026-11-22 product pivot:** the first commercial track is **COD Profit
+> Recovery**; see [`COD_PLATFORM_PLAN.md`](./COD_PLATFORM_PLAN.md) and
+> [`COD_MVP_CHECKLIST.md`](./COD_MVP_CHECKLIST.md). The P2–P8 sections below
+> describe the earlier agency/SaaS track and are not the v1 plan. This file
+> will be rewritten in Phase 0 of the COD plan.
+
 ---
 
 ## P0 — Specification & Platform Skeleton `[x]`

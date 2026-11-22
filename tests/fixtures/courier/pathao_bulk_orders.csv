@@ -1,0 +1,6 @@
+StoreId,MerchantOrderId,RecipientName,RecipientPhone,RecipientAddress,RecipientCity,RecipientZone,RecipientArea,DeliveryType,ItemType,SpecialInstruction,ItemQuantity,ItemWeight,AmountToCollect,ItemDescription
+4821,ORD-1001,Arif Chowdhury,01711000111,"House 12, Road 4, Sector 10, Uttara, Dhaka",Dhaka,Uttara,Sector 10,48,2,"Fragile items inside",2,0.5,1500,"2x Polo Shirts"
+4821,ORD-1002,Nafis Imtiaz,01811000222,"Flat 4B, House 5, Dhanmondi 27, Dhaka",Dhaka,Dhanmondi,Dhanmondi 27,48,2,"Deliver after 3 PM",1,1.0,2200,"Leather Backpack"
+4821,ORD-1003,Nusrat Jahan,01911000333,"House 7, Road 2, Banani, Dhaka",Dhaka,Banani,Banani,48,2,,1,0.5,950,"Cotton Kurti"
+4821,ORD-1004,Rahim Ahmed,01711223344,"House 45, Road 7, Avenue 3, Mirpur DOHS, Dhaka",Dhaka,Mirpur,Mirpur DOHS,48,2,"Call before delivery",1,0.75,1800,"Bluetooth Headphones"
+4821,ORD-1005,Sadia Rahman,01511000444,"House 9, Road 1, Chattogram",Chattogram,Panchlaish,Panchlaish,48,2,,1,0.5,1200,"Ceramic Mug Set"

@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "name": "universal_cod_statement",
+  "encoding": "UTF-8",
+  "delimiter": ",",
+  "primary_key": ["source", "statement_id", "consignment_id"],
+  "match_order": [
+    ["consignment_id"],
+    ["source", "merchant_invoice_id"],
+    ["recipient_phone", "cod_amount", "delivered_at"]
+  ],
+  "money_columns": [
+    "cod_amount",
+    "cod_collected",
+    "delivery_charge",
+    "cod_fee",
+    "adjustment",
+    "net_amount",
+    "mismatch_amount"
+  ],
+  "date_columns": ["delivered_at", "payout_date"],
+  "boolean_columns": ["return_flag"],
+  "columns": [
+    { "name": "source", "type": "string", "required": true, "enum": ["pathao", "steadfast", "redx"] },
+    { "name": "statement_id", "type": "string", "required": true },
+    { "name": "consignment_id", "type": "string", "required": true },
+    { "name": "merchant_invoice_id", "type": "string", "required": false },
+    { "name": "tracking_code", "type": "string", "required": false },
+    { "name": "recipient_name", "type": "string", "required": false },
+    { "name": "recipient_phone", "type": "string", "required": false, "pattern": "^01[3-9][0-9]{8}$" },
+    { "name": "delivery_area", "type": "string", "required": false },
+    { "name": "status", "type": "string", "required": true, "enum": ["delivered", "returned", "in_transit", "cancelled"] },
+    { "name": "cod_amount", "type": "decimal", "required": true, "min": 0 },
+    { "name": "cod_collected", "type": "decimal", "required": true, "min": 0 },
+    { "name": "delivery_charge", "type": "decimal", "required": true, "min": 0 },
+    { "name": "cod_fee", "type": "decimal", "required": true, "min": 0 },
+    { "name": "adjustment", "type": "decimal", "required": true },
+    { "name": "net_amount", "type": "decimal", "required": true },
+    { "name": "return_flag", "type": "boolean", "required": true },
+    { "name": "delivered_at", "type": "date", "required": false },
+    { "name": "payout_date", "type": "date", "required": false },
+    { "name": "mismatch_type", "type": "string", "required": false, "enum": ["", "missing_cod", "underpaid", "overpaid", "overcharged_fee", "return_fee", "duplicate_line", "prepaid_fee", "pending", "cancelled", "manual_review"] },
+    { "name": "mismatch_amount", "type": "decimal", "required": false, "min": 0 },
+    { "name": "notes", "type": "string", "required": false }
+  ]
+}

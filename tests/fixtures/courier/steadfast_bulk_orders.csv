@@ -1,0 +1,6 @@
+invoice,recipient_name,recipient_phone,recipient_address,cod_amount,note
+ORD-10231,Jahid Hasan,01712345678,"House 14, Road 7, Dhanmondi, Dhaka",1060,"Call before delivery"
+ORD-10232,Nusrat Jahan,01812345678,"House 22, Road 5, Mirpur, Dhaka",1500,
+ORD-10233,Arif Chowdhury,01711000111,"House 12, Road 4, Sector 10, Uttara, Dhaka",1200,"Fragile items inside"
+ORD-10234,Farhana Akter,01911000222,"Flat 4B, House 5, Gulshan 2, Dhaka",2200,"Deliver after 3 PM"
+ORD-10235,Rahim Ahmed,01711223344,"House 45, Road 7, Avenue 3, Mirpur DOHS, Dhaka",1500,"Call before delivery"

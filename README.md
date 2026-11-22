@@ -147,6 +147,12 @@ MinIO and has no API service.
 
 | Document | Contents |
 | --- | --- |
+| [`AGENTS.md`](./AGENTS.md) | Always-loaded agent rules |
+| [`docs/agent-master-guide.md`](./docs/agent-master-guide.md) | Rule tiers, work loop, code-size method |
+| [`CODEBASE_MAP.md`](./CODEBASE_MAP.md) | One-screen module map |
+| [`docs/decisions.md`](./docs/decisions.md) | Dated owner decisions |
+| [`docs/COD_PLATFORM_PLAN.md`](./docs/COD_PLATFORM_PLAN.md) | COD product/build plan |
+| [`docs/COD_MVP_CHECKLIST.md`](./docs/COD_MVP_CHECKLIST.md) | Phase-by-phase execution board |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System design, stack, topology |
 | [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Phases P0–P8, exit criteria |
 | [`docs/DATABASE.md`](./docs/DATABASE.md) | Schema, indexes, invariants |
@@ -170,12 +176,15 @@ MinIO and has no API service.
 | Area | State |
 | --- | --- |
 | Specifications | complete |
-| DB migrations (`0001`–`0006`) | complete |
+| DB migrations (`0001`–`0009`) | complete |
 | Auth (register / login / me) | implemented |
+| Tenancy (tenants, memberships, audit, team invites) | implemented |
+| COD platform | Phase 1 tenancy/team backend; Phase 2 next |
 | Digital catalogue, vault, download | implemented |
 | Wallet checkout, idempotency, refund | implemented |
-| Service order pipeline | routes + types, service stubs (`501`) |
-| Billing, AI generator, notifications | specified, not implemented |
+| Service order pipeline | implemented |
+| Wallet top-ups, webhooks, invoices | implemented |
+| AI generator, notifications | specified, not implemented |
 | Frontend SPA | not started |
 | Tauri shell | not started |
 | CI | configured |
