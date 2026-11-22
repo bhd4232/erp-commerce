@@ -68,6 +68,9 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
+      - name: Agent rule guards
+        run: ./scripts/check_agent_rules.sh
+
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
