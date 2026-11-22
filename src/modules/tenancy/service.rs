@@ -416,7 +416,7 @@ fn parse_role(raw: &str) -> Result<TenantRole, AppError> {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn insert_audit(
+pub(crate) async fn insert_audit(
     tx: &mut Transaction<'_, Postgres>,
     tenant_id: Uuid,
     actor_id: Option<Uuid>,

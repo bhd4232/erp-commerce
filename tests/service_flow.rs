@@ -46,6 +46,7 @@ fn config() -> Config {
         signed_upload_ttl_seconds: 300,
         payment_webhook_secret: "test-webhook-secret".into(),
         payment_redirect_base: None,
+        connector_encryption_key: "test-connector-encryption-key-32".into(),
     }
 }
 

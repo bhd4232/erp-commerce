@@ -20,9 +20,9 @@ if grep -RInE --include='handlers.rs' '\.(unwrap|expect)\(' src/modules >/dev/nu
     fail "unwrap/expect found in a handlers.rs file (propagate AppError)"
 fi
 
-# DTOs must never expose storage keys.
-if grep -RInE --include='dtos.rs' 'storage_path|final_asset_path' src/modules >/dev/null 2>&1; then
-    fail "storage key field found in a DTO"
+# DTOs must never expose storage keys or encrypted connector secrets.
+if grep -RInE --include='dtos.rs' 'storage_path|final_asset_path|webhook_secret_encrypted' src/modules >/dev/null 2>&1; then
+    fail "storage key or encrypted connector secret found in a DTO"
 fi
 
 # No debug printing in production source.

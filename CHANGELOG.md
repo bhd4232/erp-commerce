@@ -6,6 +6,10 @@
 
 - Tenancy foundation: `tenants`, `memberships`, `audit_events`, tenant context,
   team invite/accept, roles and isolation tests.
+- Store connectors and order ingest: WooCommerce signed webhook, replay
+  protection, canonical CSV import, customers and `GET /orders`.
+- `CONNECTOR_ENCRYPTION_KEY` for connector secrets; `base64` and `csv`
+  dependencies.
 - COD platform plan, MVP checklist, courier CSV fixtures and the agent master
   guide.
 - Agent rule system: `CODEBASE_MAP.md`, per-module maps, `docs/rules/`,

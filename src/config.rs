@@ -31,6 +31,9 @@ pub struct Config {
     pub payment_webhook_secret: String,
     /// Optional base URL a client is redirected to after creating a top-up.
     pub payment_redirect_base: Option<String>,
+
+    /// Symmetric key used to encrypt connector webhook secrets at rest.
+    pub connector_encryption_key: String,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -47,6 +50,14 @@ impl Config {
         if jwt_secret.len() < 32 {
             return Err(ConfigError::Invalid(
                 "JWT_SECRET",
+                "must be at least 32 characters".to_string(),
+            ));
+        }
+
+        let connector_encryption_key = required("CONNECTOR_ENCRYPTION_KEY")?;
+        if connector_encryption_key.len() < 32 {
+            return Err(ConfigError::Invalid(
+                "CONNECTOR_ENCRYPTION_KEY",
                 "must be at least 32 characters".to_string(),
             ));
         }
@@ -74,6 +85,7 @@ impl Config {
 
             payment_webhook_secret: optional("PAYMENT_WEBHOOK_SECRET").unwrap_or_default(),
             payment_redirect_base: optional("PAYMENT_REDIRECT_BASE"),
+            connector_encryption_key,
         })
     }
 }

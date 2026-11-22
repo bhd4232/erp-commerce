@@ -363,6 +363,92 @@ Rules:
 
 ---
 
+## 2A. Connectors & Orders
+
+Tenant-scoped except the public webhook. Every connector secret is encrypted at
+rest with `CONNECTOR_ENCRYPTION_KEY`; the API never returns it again after
+creation.
+
+### `POST /connectors`
+
+Owner/admin + `X-Tenant-Id`.
+
+```json
+{ "kind": "woocommerce", "name": "Main store" }
+```
+
+`201 Created` — the `webhook_secret` is shown **once**:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "kind": "woocommerce",
+    "name": "Main store",
+    "status": "active",
+    "webhook_path": "/api/v1/webhooks/woocommerce/uuid",
+    "webhook_secret": "64-hex-chars",
+    "created_at": "2026-11-22T10:00:00Z"
+  },
+  "meta": null
+}
+```
+
+Errors: `403` staff, `409` duplicate name, `400` invalid kind/name.
+
+### `GET /connectors`
+
+Returns connectors for the active tenant; never returns a secret.
+
+### `POST /connectors/{connector_id}/import`
+
+Owner/admin + `X-Tenant-Id`, `Content-Type: text/csv`. Imports the canonical
+order CSV in one transaction.
+
+```csv
+order_id,order_number,status,payment_method,total,currency,placed_at,customer_name,phone,email,address_1,address_2,city,state
+CSV-1,ORD-CSV-1,processing,cod,1500.00,BDT,2026-11-21T09:00:00,Nusrat Jahan,01812345678,nusrat@example.com,House 1,Road 2,Dhaka,Dhaka
+```
+
+`200 OK` → `{ "data": { "processed": 1 } }`. Errors: `404` foreign connector,
+`422` empty/invalid CSV.
+
+### `POST /webhooks/woocommerce/{connector_id}`
+
+Public. Verifies `X-WC-Webhook-Signature` as base64 HMAC-SHA256 of the raw body
+using the connector secret. `X-WC-Webhook-Delivery-ID` is the idempotency key;
+without it the body hash is used.
+
+`200 OK` → `{ "data": { "status": "processed" | "duplicate" | "ignored", "order_id": "uuid|null" } }`.
+
+Errors: `401` bad signature, `404` unknown connector, `422` invalid JSON/order.
+
+### `GET /orders`
+
+Tenant-scoped, paginated. Optional `status` filter.
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "order_number": "ORD-10231",
+      "external_id": "10231",
+      "status": "processing",
+      "total_amount": "1060.00",
+      "cod_amount": "1060.00",
+      "currency": "BDT",
+      "placed_at": "2026-11-20T10:00:00Z",
+      "customer_name": "Jahid Hasan",
+      "customer_phone": "01712345678"
+    }
+  ],
+  "meta": { "page": 1, "per_page": 20, "total": 1 }
+}
+```
+
+---
+
 ## 3. Checkout (Digital)
 
 ### `POST /digital/checkout`

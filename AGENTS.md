@@ -108,6 +108,8 @@ is removed.
   `docs/rules/money-and-ledger.md`.
 - Before a new endpoint, error variant, DTO or storage change, read
   `docs/rules/api-and-storage.md`.
+- Before a connector, webhook, order-ingest or CSV import change, read
+  `docs/rules/connectors-and-orders.md`.
 - Before any Vue screen, component, token or i18n text, read
   `docs/rules/frontend.md`.
 - Before writing or changing tests, read `docs/rules/testing.md`.

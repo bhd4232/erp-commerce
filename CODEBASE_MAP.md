@@ -25,6 +25,8 @@ tests/               Postgres-backed integration tests + fixtures
 | Auth | `src/modules/auth/` | `docs/codebase-map/auth.md` | users, register, login, me |
 | Tenancy | `src/modules/tenancy/` | `docs/codebase-map/tenancy.md` | tenants, memberships, audit, team |
 | Digital | `src/modules/digital/` | `docs/codebase-map/digital.md` | products, checkout, vault, downloads, refunds |
+| Connectors | `src/modules/connectors/` | `docs/codebase-map/connectors.md` | WooCommerce webhook, CSV import, order ingest |
+| Orders | `src/modules/orders/` | `docs/codebase-map/orders.md` | tenant-scoped order list |
 | Services | `src/modules/services/` | `docs/codebase-map/services.md` | agency order pipeline, proofs, revisions |
 | Finance | `src/modules/finance/` | `docs/codebase-map/finance.md` | wallet, top-ups, invoices, webhooks |
 | Uploads | `src/modules/uploads/` | `docs/codebase-map/platform.md` | pre-signed upload issuance |
@@ -56,6 +58,7 @@ tests/               Postgres-backed integration tests + fixtures
 | `0007_deliverable_source.sql` | raw preview source key |
 | `0008_topups_invoices.sql` | top-up intents, invoice numbers |
 | `0009_tenancy.sql` | tenants, memberships, audit events |
+| `0010_connectors_orders.sql` | connectors, webhook events, customers, external orders |
 
 ## Tests
 
@@ -65,6 +68,7 @@ tests/               Postgres-backed integration tests + fixtures
 | `tests/finance_flow.rs` | top-up, webhook idempotency, invoices |
 | `tests/service_flow.rs` | brief → assign → proof → revision → approve/cancel |
 | `tests/tenancy_flow.rs` | signup provisioning, tenant isolation, invite/accept, roles |
+| `tests/connector_flow.rs` | WooCommerce webhook, replay, CSV import, order isolation |
 | `tests/fixtures/courier/` | synthetic courier order/COD statement fixtures |
 
 Run all tests with `./scripts/test.sh` (starts a throwaway PostgreSQL when one

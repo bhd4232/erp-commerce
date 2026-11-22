@@ -52,6 +52,7 @@ jobs:
       SIGNED_URL_TTL_SECONDS: 900
       SIGNED_UPLOAD_TTL_SECONDS: 300
       PAYMENT_WEBHOOK_SECRET: ci-webhook-secret
+      CONNECTOR_ENCRYPTION_KEY: ci-connector-encryption-key-32
 
     steps:
       - uses: actions/checkout@v4

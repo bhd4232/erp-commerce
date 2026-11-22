@@ -17,6 +17,8 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1/finance", modules::finance::handlers::router())
         .nest("/api/v1/webhooks", modules::finance::webhooks::router())
         .merge(modules::tenancy::handlers::router())
+        .merge(modules::connectors::handlers::router())
+        .merge(modules::orders::handlers::router())
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state)

@@ -583,3 +583,65 @@ Invariants:
 4. Every signup, invite, accept and role change writes an `audit_events` row.
 5. A request may only read a tenant through an `active` membership; missing or
    foreign tenant ids return `404`.
+
+### 9.11 Connectors and order ingest (0010)
+
+```sql
+CREATE TYPE connector_kind AS ENUM ('woocommerce', 'laravel', 'csv');
+CREATE TYPE connector_status AS ENUM ('active', 'paused', 'error');
+
+connectors(
+  id UUID PK, tenant_id -> tenants(id) ON DELETE CASCADE,
+  kind connector_kind, name VARCHAR(120),
+  status connector_status DEFAULT 'active',
+  webhook_secret_encrypted BYTEA NOT NULL,
+  config JSONB DEFAULT '{}', last_sync_at TIMESTAMPTZ,
+  created_at, updated_at,
+  UNIQUE (tenant_id, kind, name)
+)
+
+connector_webhook_events(
+  id UUID PK, tenant_id -> tenants(id), connector_id -> connectors(id),
+  event_id VARCHAR(255), topic VARCHAR(100), payload JSONB,
+  status webhook_status DEFAULT 'received', error TEXT,
+  received_at, processed_at,
+  UNIQUE (connector_id, event_id)
+)
+
+customers(
+  id UUID PK, tenant_id -> tenants(id),
+  phone_normalized VARCHAR(20), email VARCHAR(255), name VARCHAR(200),
+  first_seen_at, last_seen_at
+)
+
+external_orders(
+  id UUID PK, tenant_id -> tenants(id), connector_id -> connectors(id),
+  external_id VARCHAR(100), order_number VARCHAR(100),
+  customer_id -> customers(id) ON DELETE SET NULL,
+  status VARCHAR(40), payment_method VARCHAR(50),
+  total_amount NUMERIC(12,2), cod_amount NUMERIC(12,2),
+  currency CHAR(3), placed_at TIMESTAMPTZ, raw JSONB,
+  created_at, updated_at,
+  UNIQUE (tenant_id, connector_id, external_id)
+)
+
+order_events(
+  id UUID PK, tenant_id -> tenants(id), order_id -> external_orders(id),
+  event_type VARCHAR(80), payload JSONB, created_at
+)
+```
+
+Invariants:
+
+1. Connector secrets are encrypted with `pgp_sym_encrypt` using
+   `CONNECTOR_ENCRYPTION_KEY`; no DTO returns the encrypted value and the
+   plaintext is returned only once at creation.
+2. A webhook event is unique per `(connector_id, event_id)`; a replay changes no
+   order.
+3. An external order is unique per `(tenant_id, connector_id, external_id)`; a
+   webhook update upserts instead of duplicating.
+4. `customers` is unique per normalized phone when present and per email when
+   present.
+5. Every connector, webhook event, customer and order query filters `tenant_id`.
+6. A webhook signature is verified against the raw body before any order write;
+   a rejected signature writes a `rejected` event and no order.

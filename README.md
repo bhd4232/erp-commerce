@@ -176,10 +176,10 @@ MinIO and has no API service.
 | Area | State |
 | --- | --- |
 | Specifications | complete |
-| DB migrations (`0001`–`0009`) | complete |
+| DB migrations (`0001`–`0010`) | complete |
 | Auth (register / login / me) | implemented |
 | Tenancy (tenants, memberships, audit, team invites) | implemented |
-| COD platform | Phase 1 tenancy/team backend; Phase 2 next |
+| COD platform | Phase 1 tenancy/team + Phase 2 webhook/CSV order ingest |
 | Digital catalogue, vault, download | implemented |
 | Wallet checkout, idempotency, refund | implemented |
 | Service order pipeline | implemented |

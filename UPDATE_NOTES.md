@@ -8,10 +8,11 @@ instructions around the master guide.
 **Important files:**
 
 - `migrations/0009_tenancy.sql`
-- `src/modules/tenancy/`
-- `src/common/tenant.rs`
-- `src/app.rs`
-- `tests/tenancy_flow.rs`
+- `migrations/0010_connectors_orders.sql`
+- `src/modules/tenancy/`, `src/modules/connectors/`, `src/modules/orders/`
+- `src/common/tenant.rs`, `src/app.rs`
+- `tests/tenancy_flow.rs`, `tests/connector_flow.rs`
+- `src/config.rs`, `.env.example`, `.env.production.example` (connector key)
 - `AGENTS.md`, `CODEBASE_MAP.md`, `docs/rules/`, `docs/decisions.md`
 - `docs/agent-master-guide.md`, `docs/codebase-map/`
 - `scripts/check_agent_rules.sh`, `.github/workflows/ci.yml`
@@ -21,9 +22,11 @@ instructions around the master guide.
 
 - `cargo fmt --all -- --check` — pass
 - `cargo clippy --all-targets --all-features -- -D warnings` — pass
-- `./scripts/test.sh` — 18 unit + 23 integration tests pass
+- `./scripts/test.sh` — 18 unit + 27 integration tests pass
 - Tenancy tests: 5 pass, including duplicate-signup rollback and cross-tenant
   `404`
+- Connector tests: 4 pass, including signed webhook, replay, bad signature, CSV
+  import and cross-tenant isolation
 - `./scripts/check_agent_rules.sh` — pass
 
 **Not verified:** the Vue frontend shell for onboarding/team (not built yet);

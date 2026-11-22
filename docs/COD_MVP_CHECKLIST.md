@@ -71,22 +71,24 @@ just merged code.
 
 ### Database
 
-- [ ] `connectors`
-- [ ] `external_orders`
-- [ ] `customers`
-- [ ] `order_events`
-- [ ] `connector_webhook_events` (idempotency)
-- [ ] unique `(tenant_id, connector_id, external_id)`
+- [x] `connectors`
+- [x] `external_orders`
+- [x] `customers`
+- [x] `order_events`
+- [x] `connector_webhook_events` (idempotency)
+- [x] unique `(tenant_id, connector_id, external_id)`
 
 ### Backend
 
-- [ ] connector credential encryption boundary
+- [x] connector credential encryption boundary
 - [ ] connector service with `test`, `sync`, `health`
-- [ ] WooCommerce connector: API key, order import, webhook
+- [x] WooCommerce signed webhook + order upsert
+- [ ] WooCommerce REST historical import/sync
 - [ ] Laravel/custom webhook contract + signature
-- [ ] CSV import fallback (orders/customers)
-- [ ] idempotent upsert and retry
+- [x] CSV import fallback (orders/customers)
+- [x] idempotent webhook/order upsert
 - [ ] worker queue `connector.sync` / `webhook.process`
+- [x] tenant-scoped `GET /orders`
 
 ### Frontend
 
@@ -97,11 +99,12 @@ just merged code.
 
 ### Tests
 
-- [ ] duplicate webhook → one order
-- [ ] bad signature → 400, no write
+- [x] duplicate webhook → one order
+- [x] bad signature → 401, rejected event, no order
 - [ ] 5,000-row CSV import
-- [ ] cross-tenant connector access → 404
-- [ ] retry does not duplicate order/event
+- [x] cross-tenant connector access → 404
+- [x] replay does not duplicate order/event
+- [x] connector tests in `tests/connector_flow.rs`
 
 **Exit:** a WooCommerce store can connect and deliver orders without manual
 work.
