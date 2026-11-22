@@ -10,6 +10,8 @@ pub struct RegisterRequest {
     pub email: String,
     pub password: String,
     pub full_name: String,
+    /// Optional for backwards compatibility; defaults to "<full name> Business".
+    pub business_name: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

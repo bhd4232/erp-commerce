@@ -14,6 +14,16 @@ Authorization: Bearer <JWT_TOKEN>
 
 The token carries `sub` (user id) and `role`. The server re-reads `users.is_active`; a deactivated user is rejected even with a valid token.
 
+Tenant-scoped routes also require the active workspace:
+
+```
+X-Tenant-Id: <tenant uuid>
+```
+
+The server validates an `active` membership for that tenant. A missing header is
+`400 validation_error`; an unknown or foreign tenant is `404 not_found` (never
+`403`, so tenant ids are not enumerable).
+
 ### Response envelope
 
 Single resource:
@@ -83,10 +93,17 @@ All list endpoints accept `?page=1&per_page=20` (`per_page` max 100).
 
 ### `POST /auth/register`
 
-Public. Creates a `client`.
+Public. Creates a `client`, a tenant and an `owner` membership in one
+transaction. `business_name` is optional for backwards compatibility; when it
+is absent the server derives one from `full_name`.
 
 ```json
-{ "email": "a@b.com", "password": "min-12-chars", "full_name": "A B" }
+{
+  "email": "a@b.com",
+  "password": "min-12-chars",
+  "full_name": "A B",
+  "business_name": "A B Store"
+}
 ```
 
 `201 Created`
@@ -147,6 +164,123 @@ Authenticated.
   "meta": null
 }
 ```
+
+### 1.1 Tenancy & team
+
+#### `GET /tenants`
+
+Authenticated. Lists the caller's active tenants and role in each. No
+`X-Tenant-Id` required.
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "A B Store",
+      "slug": "a-b-store-1a2b3c4d",
+      "role": "owner",
+      "status": "active"
+    }
+  ],
+  "meta": null
+}
+```
+
+#### `GET /tenants/current`
+
+Authenticated + `X-Tenant-Id`. Returns the selected tenant and the caller's
+role.
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "A B Store",
+    "slug": "a-b-store-1a2b3c4d",
+    "role": "owner",
+    "status": "active"
+  },
+  "meta": null
+}
+```
+
+Errors: `400` missing/invalid header, `404` not a member.
+
+#### `GET /team`
+
+Authenticated + `X-Tenant-Id`. Lists memberships in the selected tenant,
+including `invited` rows.
+
+```json
+{
+  "data": [
+    {
+      "user_id": "uuid",
+      "email": "a@b.com",
+      "full_name": "A B",
+      "role": "owner",
+      "status": "active",
+      "created_at": "2026-11-22T10:00:00Z"
+    }
+  ],
+  "meta": null
+}
+```
+
+#### `POST /team/invite`
+
+Owner/admin + `X-Tenant-Id`. The invitee must already have an account. The
+membership starts as `invited`; the invitee accepts it from their own session.
+
+```json
+{ "email": "staff@example.com", "role": "staff" }
+```
+
+`201 Created` returns the membership.
+
+Errors: `403` staff trying to invite, `409` already a member/invited,
+`422` user not registered or `role = owner`.
+
+#### `GET /team/invitations`
+
+Authenticated, no `X-Tenant-Id`. Lists the caller's pending invitations across
+all tenants.
+
+```json
+{
+  "data": [
+    {
+      "membership_id": "uuid",
+      "tenant_id": "uuid",
+      "tenant_name": "A B Store",
+      "tenant_slug": "a-b-store-1a2b3c4d",
+      "role": "staff",
+      "invited_at": "2026-11-22T10:00:00Z"
+    }
+  ],
+  "meta": null
+}
+```
+
+#### `POST /team/invitations/{membership_id}/accept`
+
+Authenticated, no `X-Tenant-Id`. Activates the caller's own pending membership.
+
+`200 OK` returns the tenant summary. Errors: `404` not the caller's invitation
+or no longer pending.
+
+#### `PATCH /team/{user_id}`
+
+Owner/admin + `X-Tenant-Id`. Changes a member's role or status. Owners cannot
+be changed here; users cannot change their own membership; admins cannot change
+another admin.
+
+```json
+{ "role": "admin", "status": "active" }
+```
+
+`200 OK` returns the updated membership. Errors: `403`, `404`, `422`.
 
 ---
 

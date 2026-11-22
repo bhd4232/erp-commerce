@@ -535,3 +535,51 @@ next_invoice_number()  -- INV-202611-000001
 Invoices are append-only and issued per paid top-up (and later per paid order).
 `pdf_path` stays nullable until the PDF worker exists; the API returns a signed
 `pdf_url` only when it is set.
+
+### 9.10 Tenancy (0009)
+
+```sql
+CREATE TYPE tenant_status AS ENUM ('active', 'suspended');
+CREATE TYPE tenant_role AS ENUM ('owner', 'admin', 'staff');
+CREATE TYPE membership_status AS ENUM ('invited', 'active', 'disabled');
+
+tenants(
+  id UUID PK, name VARCHAR(120), slug VARCHAR(80) UNIQUE,
+  status tenant_status DEFAULT 'active',
+  timezone VARCHAR(64) DEFAULT 'Asia/Dhaka',
+  currency CHAR(3) DEFAULT 'BDT',
+  created_at, updated_at
+)
+
+memberships(
+  id UUID PK, tenant_id -> tenants(id) ON DELETE CASCADE,
+  user_id -> users(id) ON DELETE CASCADE,
+  role tenant_role DEFAULT 'staff',
+  status membership_status DEFAULT 'invited',
+  created_at, updated_at,
+  UNIQUE (tenant_id, user_id)
+)
+
+audit_events(
+  id UUID PK, tenant_id -> tenants(id) ON DELETE CASCADE,
+  actor_id -> users(id) ON DELETE SET NULL,
+  entity_type VARCHAR(50), entity_id UUID,
+  action VARCHAR(80), before JSONB, after JSONB,
+  ip_address VARCHAR(45), created_at
+)
+```
+
+`users` remains global. A tenant is one client business; membership is the
+authorization boundary. `0009` adds only these tables; the existing
+digital/service tables are intentionally not tenant-scoped yet (COD plan
+decision 2026-11-22). Every new COD table must carry `tenant_id` from day one.
+
+Invariants:
+
+1. A tenant always has at least one `owner` membership.
+2. `memberships` is unique per `(tenant_id, user_id)`.
+3. An invitation is `invited` until the user accepts; only the matching user can
+   accept it.
+4. Every signup, invite, accept and role change writes an `audit_events` row.
+5. A request may only read a tenant through an `active` membership; missing or
+   foreign tenant ids return `404`.

@@ -4,6 +4,7 @@ use super::dtos::{LoginRequest, LoginResponse, RegisterRequest, UserProfile};
 use super::models::User;
 use crate::common::auth::{hash_password, issue_token, verify_password};
 use crate::error::AppError;
+use crate::modules::tenancy;
 use crate::state::AppState;
 
 const MIN_PASSWORD_LEN: usize = 12;
@@ -27,6 +28,15 @@ pub async fn register(state: &AppState, payload: RegisterRequest) -> Result<User
     }
 
     let password_hash = hash_password(&payload.password)?;
+    let business_name = payload
+        .business_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{full_name} Business"));
+
+    let mut tx = state.db.begin().await?;
 
     let user = sqlx::query_as::<_, User>(
         r#"
@@ -38,7 +48,7 @@ pub async fn register(state: &AppState, payload: RegisterRequest) -> Result<User
     .bind(&email)
     .bind(&password_hash)
     .bind(&full_name)
-    .fetch_one(&state.db)
+    .fetch_one(&mut *tx)
     .await
     .map_err(|e| match &e {
         sqlx::Error::Database(db) if db.constraint() == Some("users_email_key") => {
@@ -46,6 +56,9 @@ pub async fn register(state: &AppState, payload: RegisterRequest) -> Result<User
         }
         _ => AppError::Db(e),
     })?;
+
+    tenancy::service::provision_owner(&mut tx, user.id, &business_name).await?;
+    tx.commit().await?;
 
     Ok(user.into())
 }

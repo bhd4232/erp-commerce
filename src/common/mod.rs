@@ -5,3 +5,4 @@ pub mod extractors;
 pub mod pagination;
 pub mod response;
 pub mod storage;
+pub mod tenant;

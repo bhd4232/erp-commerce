@@ -4,4 +4,5 @@ pub mod auth;
 pub mod digital;
 pub mod finance;
 pub mod services;
+pub mod tenancy;
 pub mod uploads;

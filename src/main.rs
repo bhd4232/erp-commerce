@@ -1,13 +1,10 @@
 use std::sync::Arc;
 
-use axum::Router;
 use sqlx::postgres::PgPoolOptions;
-use tower_http::cors::CorsLayer;
-use tower_http::trace::TraceLayer;
 
+use erp_commerce::app::build_router;
 use erp_commerce::common::storage::Storage;
 use erp_commerce::config::Config;
-use erp_commerce::modules;
 use erp_commerce::state::AppState;
 
 #[tokio::main]
@@ -52,27 +49,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app).await?;
 
     Ok(())
-}
-
-/// Single place where the HTTP surface is composed.
-///
-/// Route paths are the contract in docs/API_SPEC.md; keep them in sync.
-pub fn build_router(state: AppState) -> Router {
-    Router::new()
-        .route("/healthz", axum::routing::get(healthz))
-        .nest("/api/v1/auth", modules::auth::handlers::router())
-        .nest("/api/v1/digital", modules::digital::handlers::router())
-        .nest("/api/v1/services", modules::services::handlers::router())
-        .nest("/api/v1/uploads", modules::uploads::handlers::router())
-        .nest("/api/v1/finance", modules::finance::handlers::router())
-        .nest("/api/v1/webhooks", modules::finance::webhooks::router())
-        .layer(TraceLayer::new_for_http())
-        .layer(CorsLayer::permissive())
-        .with_state(state)
-}
-
-/// Liveness probe. Returns 200 when the process is serving requests.
-/// Readiness (database reachable) is checked by the platform separately.
-async fn healthz() -> &'static str {
-    "ok"
 }
