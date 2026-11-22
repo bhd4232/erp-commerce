@@ -81,9 +81,9 @@ just merged code.
 ### Backend
 
 - [x] connector credential encryption boundary
-- [ ] connector service with `test`, `sync`, `health`
+- [x] connector service with `test`, `sync`, `health`
 - [x] WooCommerce signed webhook + order upsert
-- [ ] WooCommerce REST historical import/sync
+- [x] WooCommerce REST historical import/sync
 - [ ] Laravel/custom webhook contract + signature
 - [x] CSV import fallback (orders/customers)
 - [x] idempotent webhook/order upsert
@@ -101,10 +101,10 @@ just merged code.
 
 - [x] duplicate webhook → one order
 - [x] bad signature → 401, rejected event, no order
-- [ ] 5,000-row CSV import
+- [x] 5,000-row CSV import
 - [x] cross-tenant connector access → 404
 - [x] replay does not duplicate order/event
-- [x] connector tests in `tests/connector_flow.rs`
+- [x] connector tests in `tests/connector_flow.rs`, including REST sync against a fake WooCommerce server
 
 **Exit:** a WooCommerce store can connect and deliver orders without manual
 work.

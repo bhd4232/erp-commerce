@@ -645,3 +645,18 @@ Invariants:
 5. Every connector, webhook event, customer and order query filters `tenant_id`.
 6. A webhook signature is verified against the raw body before any order write;
    a rejected signature writes a `rejected` event and no order.
+
+### 9.12 Connector REST credentials (0011)
+
+```sql
+ALTER TABLE connectors
+    ADD COLUMN base_url TEXT,
+    ADD COLUMN api_key_encrypted BYTEA,
+    ADD COLUMN api_secret_encrypted BYTEA;
+```
+
+`api_key_encrypted` and `api_secret_encrypted` are either both NULL or both
+present. `base_url` is the WooCommerce site root; the REST client reads
+`/wp-json/wc/v3/orders` with Basic Auth. Secrets use the same
+`CONNECTOR_ENCRYPTION_KEY` and are never returned after creation. The webhook
+path/secret from `0010` remain valid for connectors without REST credentials.

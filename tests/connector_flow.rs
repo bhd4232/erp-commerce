@@ -1,10 +1,14 @@
 //! Connector and order-ingest tests: WooCommerce webhook, signature, duplicate
 //! delivery, CSV fallback and tenant isolation.
 
+use std::collections::HashMap;
+use std::fmt::Write as _;
 use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::{header, HeaderValue, Request, StatusCode};
+use axum::routing::get;
+use axum::{Json, Router};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use hmac::{Hmac, Mac};
@@ -52,6 +56,43 @@ async fn app(pool: &PgPool) -> AppState {
         cfg: Arc::new(cfg),
         storage,
     }
+}
+
+async fn fake_woocommerce() -> (String, tokio::task::JoinHandle<()>) {
+    async fn orders(
+        axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
+    ) -> Json<Value> {
+        let page = params.get("page").map(String::as_str).unwrap_or("1");
+        if page == "1" {
+            Json(json!([{
+                "id": 20231,
+                "number": "ORD-20231",
+                "status": "processing",
+                "payment_method": "cod",
+                "total": "1800.00",
+                "currency": "BDT",
+                "date_created_gmt": "2026-11-21T10:00:00",
+                "billing": {
+                    "first_name": "Sadia",
+                    "last_name": "Rahman",
+                    "phone": "01511000444",
+                    "email": "sadia@example.com"
+                }
+            }]))
+        } else {
+            Json(json!([]))
+        }
+    }
+
+    let app = Router::new().route("/wp-json/wc/v3/orders", get(orders));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listener");
+    let addr = listener.local_addr().expect("addr");
+    let handle = tokio::spawn(async move {
+        axum::serve(listener, app).await.expect("fake server");
+    });
+    (format!("http://{addr}"), handle)
 }
 
 async fn register(app: &AppState, email: &str, business: &str) -> (Uuid, Uuid) {
@@ -146,6 +187,35 @@ async fn create_connector(
     let path = body["data"]["webhook_path"].as_str().map(str::to_string);
     let secret = body["data"]["webhook_secret"].as_str().map(str::to_string);
     (id, path, secret)
+}
+
+async fn create_rest_connector(app: &AppState, token: &str, tenant: Uuid, base_url: &str) -> Uuid {
+    let (status, body) = call(
+        app,
+        "POST",
+        "/api/v1/connectors",
+        Some(token),
+        Some(tenant),
+        &[("content-type", "application/json")],
+        Body::from(
+            json!({
+                "kind": "woocommerce",
+                "name": "REST store",
+                "base_url": base_url,
+                "consumer_key": "ck_test",
+                "consumer_secret": "cs_test"
+            })
+            .to_string(),
+        ),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(body["data"]["rest_configured"], true);
+    body["data"]["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid")
 }
 
 fn woocommerce_order() -> String {
@@ -342,6 +412,110 @@ async fn csv_import_and_tenant_isolation(pool: PgPool) {
     )
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn woocommerce_rest_sync_and_health(pool: PgPool) {
+    let app = app(&pool).await;
+    let (owner, tenant) = register(&app, "owner4@example.com", "Owner Co").await;
+    let owner_token = token(&app, owner);
+    let (base_url, server) = fake_woocommerce().await;
+    let connector_id = create_rest_connector(&app, &owner_token, tenant, &base_url).await;
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/connectors/{connector_id}/test"),
+        Some(&owner_token),
+        Some(tenant),
+        &[],
+        Body::empty(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["ok"], true);
+
+    let (status, body) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/connectors/{connector_id}/health"),
+        Some(&owner_token),
+        Some(tenant),
+        &[],
+        Body::empty(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["rest_configured"], true);
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/connectors/{connector_id}/sync?pages=2"),
+        Some(&owner_token),
+        Some(tenant),
+        &[],
+        Body::empty(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["processed"], 1);
+
+    let (status, orders) = call(
+        &app,
+        "GET",
+        "/api/v1/orders",
+        Some(&owner_token),
+        Some(tenant),
+        &[],
+        Body::empty(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(orders["data"].as_array().expect("orders").len(), 1);
+    assert_eq!(orders["data"][0]["external_id"], "20231");
+
+    server.abort();
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn csv_import_handles_five_thousand_rows(pool: PgPool) {
+    let app = app(&pool).await;
+    let (owner, tenant) = register(&app, "owner5@example.com", "Owner Co").await;
+    let owner_token = token(&app, owner);
+    let (connector_id, _, _) = create_connector(&app, &owner_token, tenant, "csv").await;
+
+    let mut csv = String::from(
+        "order_id,order_number,status,payment_method,total,currency,placed_at,customer_name,phone,email,address_1,address_2,city,state\n",
+    );
+    for i in 0..5_000 {
+        writeln!(
+            csv,
+            "CSV-{i},ORD-{i},processing,cod,100.00,BDT,2026-11-21T09:00:00,Customer {i},01712345678,c{i}@example.com,House,Road,Dhaka,Dhaka"
+        )
+        .expect("write csv");
+    }
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/connectors/{connector_id}/import"),
+        Some(&owner_token),
+        Some(tenant),
+        &[("content-type", "text/csv")],
+        Body::from(csv),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["data"]["processed"], 5_000);
+
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM external_orders WHERE tenant_id = $1")
+            .bind(tenant)
+            .fetch_one(&app.db)
+            .await
+            .expect("orders");
+    assert_eq!(count, 5_000);
 }
 
 #[sqlx::test(migrations = "./migrations")]

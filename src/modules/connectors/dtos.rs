@@ -6,6 +6,10 @@ use uuid::Uuid;
 pub struct CreateConnectorRequest {
     pub kind: String,
     pub name: String,
+    /// WooCommerce site root, e.g. `https://shop.example.com`.
+    pub base_url: Option<String>,
+    pub consumer_key: Option<String>,
+    pub consumer_secret: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -27,6 +31,7 @@ pub struct CreatedConnector {
     pub webhook_path: Option<String>,
     /// Returned exactly once at creation; never stored by the client.
     pub webhook_secret: Option<String>,
+    pub rest_configured: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -39,6 +44,26 @@ pub struct WebhookResult {
 #[derive(Debug, Serialize)]
 pub struct ImportResult {
     pub processed: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ConnectorHealth {
+    pub id: Uuid,
+    pub kind: String,
+    pub status: String,
+    pub rest_configured: bool,
+    pub last_sync_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncResult {
+    pub processed: usize,
+    pub pages: u32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TestResult {
+    pub ok: bool,
 }
 
 #[derive(Debug, Deserialize)]

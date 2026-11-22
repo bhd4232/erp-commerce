@@ -59,6 +59,7 @@ tests/               Postgres-backed integration tests + fixtures
 | `0008_topups_invoices.sql` | top-up intents, invoice numbers |
 | `0009_tenancy.sql` | tenants, memberships, audit events |
 | `0010_connectors_orders.sql` | connectors, webhook events, customers, external orders |
+| `0011_connector_rest_credentials.sql` | WooCommerce REST credentials |
 
 ## Tests
 

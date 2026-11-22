@@ -179,7 +179,7 @@ MinIO and has no API service.
 | DB migrations (`0001`–`0010`) | complete |
 | Auth (register / login / me) | implemented |
 | Tenancy (tenants, memberships, audit, team invites) | implemented |
-| COD platform | Phase 1 tenancy/team + Phase 2 webhook/CSV order ingest |
+| COD platform | Phase 1 tenancy/team + Phase 2 webhook/REST/CSV order ingest |
 | Digital catalogue, vault, download | implemented |
 | Wallet checkout, idempotency, refund | implemented |
 | Service order pipeline | implemented |

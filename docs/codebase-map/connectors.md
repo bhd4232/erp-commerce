@@ -4,7 +4,8 @@
 **Tables:** `connectors`, `connector_webhook_events`, `customers`,
 `external_orders`, `order_events`  
 **Endpoints:** `GET/POST /connectors`, `POST /connectors/{id}/import`,
-`POST /webhooks/woocommerce/{connector_id}`
+`POST /connectors/{id}/test`, `POST /connectors/{id}/sync`,
+`GET /connectors/{id}/health`, `POST /webhooks/woocommerce/{connector_id}`
 
 ## Files
 
@@ -12,8 +13,8 @@
 - `dtos.rs` — connector summaries, created-secret response, webhook/import
   results, canonical CSV row.
 - `service.rs` — connector creation, secret encryption/decryption, WooCommerce
-  signature verification, idempotent webhook ingest, CSV import, customer/order
-  upsert.
+  signature verification, REST test/sync/health, idempotent webhook ingest, CSV
+  import, customer/order upsert.
 - `handlers.rs` — HTTP only.
 
 ## Invariants

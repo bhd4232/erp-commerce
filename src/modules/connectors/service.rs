@@ -4,6 +4,7 @@ use base64::Engine;
 use chrono::{DateTime, NaiveDateTime, Utc};
 use csv::ReaderBuilder;
 use hmac::{Hmac, Mac};
+use reqwest::Client;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -11,14 +12,42 @@ use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
 use super::dtos::{
-    ConnectorSummary, CreateConnectorRequest, CreatedConnector, CsvOrder, ImportResult,
-    WebhookResult,
+    ConnectorHealth, ConnectorSummary, CreateConnectorRequest, CreatedConnector, CsvOrder,
+    ImportResult, SyncResult, TestResult, WebhookResult,
 };
 use super::models::ConnectorRow;
 use crate::common::tenant::TenantContext;
 use crate::error::AppError;
 use crate::modules::tenancy;
 use crate::state::AppState;
+
+struct RestCredentials {
+    tenant_id: Uuid,
+    kind: String,
+    status: String,
+    base_url: Option<String>,
+    api_key: Option<String>,
+    api_secret: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct RestCredentialsRow {
+    tenant_id: Uuid,
+    kind: String,
+    status: String,
+    base_url: Option<String>,
+    api_key: Option<String>,
+    api_secret: Option<String>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct HealthRow {
+    id: Uuid,
+    kind: String,
+    status: String,
+    rest_configured: bool,
+    last_sync_at: Option<DateTime<Utc>>,
+}
 
 struct EventRecord<'a> {
     tenant_id: Uuid,
@@ -64,21 +93,71 @@ pub async fn create_connector(
         return Err(AppError::Validation("name must be 1-120 characters".into()));
     }
 
-    let secret = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+    let base_url = payload
+        .base_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| value.trim_end_matches('/').to_string());
+    let consumer_key = payload
+        .consumer_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+    let consumer_secret = payload
+        .consumer_secret
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string);
+
+    let rest_supplied = base_url.is_some() || consumer_key.is_some() || consumer_secret.is_some();
+    if rest_supplied {
+        if kind != "woocommerce" {
+            return Err(AppError::Validation(
+                "REST credentials are only supported for WooCommerce".into(),
+            ));
+        }
+        let url = base_url.as_deref().ok_or_else(|| {
+            AppError::Validation("base_url is required with REST credentials".into())
+        })?;
+        if !(url.starts_with("https://") || url.starts_with("http://")) {
+            return Err(AppError::Validation(
+                "base_url must start with http:// or https://".into(),
+            ));
+        }
+        if consumer_key.is_none() || consumer_secret.is_none() {
+            return Err(AppError::Validation(
+                "consumer_key and consumer_secret are required together".into(),
+            ));
+        }
+    }
+
+    let webhook_secret = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
 
     let mut tx = state.db.begin().await?;
     let row: ConnectorRow = sqlx::query_as(
         r#"
-        INSERT INTO connectors (tenant_id, kind, name, webhook_secret_encrypted)
-        VALUES ($1, $2::connector_kind, $3, pgp_sym_encrypt($4, $5))
+        INSERT INTO connectors
+            (tenant_id, kind, name, webhook_secret_encrypted,
+             base_url, api_key_encrypted, api_secret_encrypted)
+        VALUES
+            ($1, $2::connector_kind, $3, pgp_sym_encrypt($4, $5),
+             $6,
+             CASE WHEN $7::text IS NULL THEN NULL ELSE pgp_sym_encrypt($7, $5) END,
+             CASE WHEN $8::text IS NULL THEN NULL ELSE pgp_sym_encrypt($8, $5) END)
         RETURNING id, kind::text, name, status::text, last_sync_at, created_at
         "#,
     )
     .bind(ctx.tenant_id)
     .bind(&kind)
     .bind(name)
-    .bind(&secret)
+    .bind(&webhook_secret)
     .bind(&state.cfg.connector_encryption_key)
+    .bind(&base_url)
+    .bind(consumer_key.as_deref())
+    .bind(consumer_secret.as_deref())
     .fetch_one(&mut *tx)
     .await
     .map_err(|e| match &e {
@@ -96,7 +175,7 @@ pub async fn create_connector(
         row.id,
         "connector.created",
         None,
-        Some(json!({ "kind": kind, "name": name })),
+        Some(json!({ "kind": kind, "name": name, "rest_configured": rest_supplied })),
     )
     .await?;
     tx.commit().await?;
@@ -108,7 +187,8 @@ pub async fn create_connector(
         name: row.name,
         status: row.status,
         webhook_path: is_webhook.then(|| format!("/api/v1/webhooks/woocommerce/{}", row.id)),
-        webhook_secret: is_webhook.then_some(secret),
+        webhook_secret: is_webhook.then_some(webhook_secret),
+        rest_configured: rest_supplied,
         created_at: row.created_at,
     })
 }
@@ -140,6 +220,204 @@ pub async fn list_connectors(
             created_at: row.created_at,
         })
         .collect())
+}
+
+pub async fn connector_health(
+    state: &AppState,
+    ctx: &TenantContext,
+    connector_id: Uuid,
+) -> Result<ConnectorHealth, AppError> {
+    let row: Option<HealthRow> = sqlx::query_as(
+        r#"
+        SELECT id, kind::text AS kind, status::text AS status,
+               (base_url IS NOT NULL AND api_key_encrypted IS NOT NULL
+                AND api_secret_encrypted IS NOT NULL) AS rest_configured,
+               last_sync_at
+          FROM connectors
+         WHERE id = $1 AND tenant_id = $2
+        "#,
+    )
+    .bind(connector_id)
+    .bind(ctx.tenant_id)
+    .fetch_optional(&state.db)
+    .await?;
+
+    let row = row.ok_or(AppError::NotFound)?;
+    Ok(ConnectorHealth {
+        id: row.id,
+        kind: row.kind,
+        status: row.status,
+        rest_configured: row.rest_configured,
+        last_sync_at: row.last_sync_at,
+    })
+}
+
+pub async fn test_connector(
+    state: &AppState,
+    ctx: &TenantContext,
+    connector_id: Uuid,
+) -> Result<TestResult, AppError> {
+    let creds = rest_credentials(state, connector_id).await?;
+    if creds.tenant_id != ctx.tenant_id {
+        return Err(AppError::NotFound);
+    }
+    if creds.kind == "csv" {
+        return Ok(TestResult { ok: true });
+    }
+    let (base_url, key, secret) = require_rest(&creds)?;
+    fetch_orders(&base_url, &key, &secret, 1, 1).await?;
+    Ok(TestResult { ok: true })
+}
+
+pub async fn sync_connector(
+    state: &AppState,
+    ctx: &TenantContext,
+    connector_id: Uuid,
+    pages: Option<u32>,
+) -> Result<SyncResult, AppError> {
+    let creds = rest_credentials(state, connector_id).await?;
+    if creds.tenant_id != ctx.tenant_id {
+        return Err(AppError::NotFound);
+    }
+    if creds.kind != "woocommerce" {
+        return Err(AppError::Unprocessable(
+            "historical sync is only implemented for WooCommerce".into(),
+        ));
+    }
+    if creds.status != "active" {
+        return Err(AppError::Forbidden);
+    }
+    let (base_url, key, secret) = require_rest(&creds)?;
+    let pages = pages.unwrap_or(5).clamp(1, 10);
+
+    let mut tx = state.db.begin().await?;
+    let mut processed = 0usize;
+    let mut used_pages = 0u32;
+
+    for page in 1..=pages {
+        let orders = fetch_orders(&base_url, &key, &secret, page, 100).await?;
+        used_pages = page;
+        if orders.is_empty() {
+            break;
+        }
+        let count = orders.len();
+        for order in orders {
+            let normalized = normalize_woocommerce(&order)?;
+            persist_order(
+                &mut tx,
+                ctx.tenant_id,
+                connector_id,
+                &normalized,
+                "woocommerce.sync",
+            )
+            .await?;
+            processed += 1;
+        }
+        if count < 100 {
+            break;
+        }
+    }
+
+    tenancy::service::insert_audit(
+        &mut tx,
+        ctx.tenant_id,
+        Some(ctx.user_id),
+        "connector",
+        connector_id,
+        "connector.synced",
+        None,
+        Some(json!({ "processed": processed, "pages": used_pages })),
+    )
+    .await?;
+    tx.commit().await?;
+
+    Ok(SyncResult {
+        processed,
+        pages: used_pages,
+    })
+}
+
+async fn fetch_orders(
+    base_url: &str,
+    key: &str,
+    secret: &str,
+    page: u32,
+    per_page: u32,
+) -> Result<Vec<Value>, AppError> {
+    let params = [
+        ("per_page", per_page.to_string()),
+        ("page", page.to_string()),
+        ("status", "any".to_string()),
+    ];
+    let response = Client::new()
+        .get(format!("{base_url}/wp-json/wc/v3/orders"))
+        .basic_auth(key, Some(secret))
+        .query(&params)
+        .send()
+        .await
+        .map_err(|_| AppError::Unprocessable("WooCommerce request failed".into()))?;
+
+    if matches!(
+        response.status(),
+        reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN
+    ) {
+        return Err(AppError::Unprocessable(
+            "WooCommerce rejected the API credentials".into(),
+        ));
+    }
+    if !response.status().is_success() {
+        return Err(AppError::Unprocessable(format!(
+            "WooCommerce returned HTTP {}",
+            response.status().as_u16()
+        )));
+    }
+
+    response
+        .json::<Vec<Value>>()
+        .await
+        .map_err(|_| AppError::Unprocessable("WooCommerce returned invalid JSON".into()))
+}
+
+fn require_rest(creds: &RestCredentials) -> Result<(String, String, String), AppError> {
+    match (&creds.base_url, &creds.api_key, &creds.api_secret) {
+        (Some(base), Some(key), Some(secret)) if !base.is_empty() => {
+            Ok((base.clone(), key.clone(), secret.clone()))
+        }
+        _ => Err(AppError::Unprocessable(
+            "REST credentials are not configured for this connector".into(),
+        )),
+    }
+}
+
+async fn rest_credentials(
+    state: &AppState,
+    connector_id: Uuid,
+) -> Result<RestCredentials, AppError> {
+    let row: Option<RestCredentialsRow> = sqlx::query_as(
+        r#"
+        SELECT tenant_id, kind::text AS kind, status::text AS status, base_url,
+               CASE WHEN api_key_encrypted IS NULL THEN NULL
+                    ELSE pgp_sym_decrypt(api_key_encrypted, $2)::text END AS api_key,
+               CASE WHEN api_secret_encrypted IS NULL THEN NULL
+                    ELSE pgp_sym_decrypt(api_secret_encrypted, $2)::text END AS api_secret
+          FROM connectors
+         WHERE id = $1
+        "#,
+    )
+    .bind(connector_id)
+    .bind(&state.cfg.connector_encryption_key)
+    .fetch_optional(&state.db)
+    .await?;
+
+    let row = row.ok_or(AppError::NotFound)?;
+    Ok(RestCredentials {
+        tenant_id: row.tenant_id,
+        kind: row.kind,
+        status: row.status,
+        base_url: row.base_url,
+        api_key: row.api_key,
+        api_secret: row.api_secret,
+    })
 }
 
 pub async fn ingest_woocommerce(

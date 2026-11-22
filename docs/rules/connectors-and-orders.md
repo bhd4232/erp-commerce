@@ -19,6 +19,11 @@ scope.
 - A CSV import is one transaction. One invalid row rolls the whole batch back.
 - Every connector/webhook/order query filters `tenant_id`; a foreign connector
   returns `404`.
+- REST credentials are optional and must be supplied as a complete set; they are
+  encrypted with the same key as the webhook secret and never returned after
+  creation.
+- A REST sync is bounded (10 pages) and upserts each page in one transaction;
+  the base URL is site-controlled, so never log the URL with credentials.
 - Never log the raw body, phone, address, signature or secret. The webhook event
   row stores the payload for retry/debugging; it is not a DTO.
 - A new webhook topic that changes money or status needs an explicit test.

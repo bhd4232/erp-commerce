@@ -374,8 +374,17 @@ creation.
 Owner/admin + `X-Tenant-Id`.
 
 ```json
-{ "kind": "woocommerce", "name": "Main store" }
+{
+  "kind": "woocommerce",
+  "name": "Main store",
+  "base_url": "https://shop.example.com",
+  "consumer_key": "ck_...",
+  "consumer_secret": "cs_..."
+}
 ```
+
+`base_url`/`consumer_key`/`consumer_secret` are optional and must be supplied
+together; they enable REST historical import. The webhook works without them.
 
 `201 Created` — the `webhook_secret` is shown **once**:
 
@@ -388,17 +397,39 @@ Owner/admin + `X-Tenant-Id`.
     "status": "active",
     "webhook_path": "/api/v1/webhooks/woocommerce/uuid",
     "webhook_secret": "64-hex-chars",
+    "rest_configured": true,
     "created_at": "2026-11-22T10:00:00Z"
   },
   "meta": null
 }
 ```
 
-Errors: `403` staff, `409` duplicate name, `400` invalid kind/name.
+Errors: `403` staff, `409` duplicate name, `400` invalid kind/name or
+incomplete REST credentials.
 
 ### `GET /connectors`
 
 Returns connectors for the active tenant; never returns a secret.
+
+### `GET /connectors/{connector_id}/health`
+
+Returns `id`, `kind`, `status`, `rest_configured`, `last_sync_at`.
+Errors: `404` foreign/unknown connector.
+
+### `POST /connectors/{connector_id}/test`
+
+Makes one read-only WooCommerce API request (`orders?per_page=1`). CSV returns
+`{ "ok": true }` without a network call.
+
+`200 OK` → `{ "data": { "ok": true } }`. Errors: `422` missing/rejected REST
+credentials or API failure.
+
+### `POST /connectors/{connector_id}/sync?pages=5`
+
+Imports WooCommerce orders by REST, 100 per page, capped at 10 pages. Each page
+is upserted; the whole sync is one transaction. Returns
+`{ "data": { "processed": 300, "pages": 3 } }`. Errors: `422` missing
+credentials/API failure, `403` paused connector.
 
 ### `POST /connectors/{connector_id}/import`
 
